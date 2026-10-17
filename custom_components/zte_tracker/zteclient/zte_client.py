@@ -73,6 +73,7 @@ _MODELS = {
         "tag_wan_status_data": "wan_internetstatus_lua.lua&TypeUplink=2&pageType=1",
         "topo_data_tag": "topo_lua.lua",
         "default_scheme": "https",
+        "expose_internet_connected": False,
         "reboot_public_key_id": "zte_v9_4096",
         "reboot_request_style": "browser_xhr",
         "reboot_session_token_source": "tmp",

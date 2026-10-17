@@ -39,7 +39,7 @@ OPTICAL_SENSORS: tuple[ZteOpticalSensorDescription, ...] = (
     ),
     ZteOpticalSensorDescription(
         key="PON_rx_power_dbm",
-        name="Optical Receive Power",
+        name="Optical Module Input Power",
         unique_id_suffix="pon_rx_power",
         icon="mdi:download-network-outline",
         native_unit_of_measurement="dBm",
@@ -47,7 +47,7 @@ OPTICAL_SENSORS: tuple[ZteOpticalSensorDescription, ...] = (
     ),
     ZteOpticalSensorDescription(
         key="PON_tx_power_dbm",
-        name="Optical Transmit Power",
+        name="Optical Module Output Power",
         unique_id_suffix="pon_tx_power",
         icon="mdi:upload-network-outline",
         native_unit_of_measurement="dBm",
@@ -73,7 +73,7 @@ OPTICAL_SENSORS: tuple[ZteOpticalSensorDescription, ...] = (
     ),
     ZteOpticalSensorDescription(
         key="PON_temperature_c",
-        name="Optical Module Temperature",
+        name="Operating Temperature of the Optical Module",
         unique_id_suffix="pon_temperature",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,

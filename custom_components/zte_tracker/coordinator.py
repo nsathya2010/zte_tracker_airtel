@@ -760,7 +760,9 @@ class ZteDataCoordinator(DataUpdateCoordinator):
         if routerdetails:
             router_info.update(routerdetails)
         self._apply_los_state(router_info, self._last_successful_update)
-        if isinstance(router_info.get("WAN_connected"), bool):
+        if self.client.paths.get("expose_internet_connected") is False:
+            router_info["internet_connected"] = None
+        elif isinstance(router_info.get("WAN_connected"), bool):
             router_info["internet_connected"] = router_info["WAN_connected"]
         else:
             router_info["internet_connected"] = None
@@ -770,6 +772,8 @@ class ZteDataCoordinator(DataUpdateCoordinator):
             router_info["fiber_connected"] = False
         elif router_info.get("PON_loss_of_signal") is False:
             router_info["fiber_connected"] = True
+        elif isinstance(router_info.get("PON_onu_state"), str):
+            router_info["fiber_connected"] = router_info["PON_onu_state"] == "O5"
         else:
             router_info["fiber_connected"] = None
         return {
