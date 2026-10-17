@@ -134,14 +134,63 @@ async def test_async_reboot_router_clears_session_age_on_success_and_failure(
     client = _client(reboot=Mock(return_value=True))
     coordinator = _make_coordinator(mock_hass, _entry(), client)
     coordinator._last_login_at = datetime.now()
+    coordinator.data = {
+        "devices": {"AA": {"name": "Phone", "active": True}},
+        "router_info": {"status": "connected", "router_connected": True},
+    }
 
     assert await coordinator.async_reboot_router() is True
     assert coordinator._last_login_at is None
+    assert coordinator.rebooting is False
+    assert coordinator.available is True
+    assert coordinator.data["router_info"]["status"] == "connected"
 
     coordinator._last_login_at = datetime.now()
     client.reboot.side_effect = RuntimeError("boom")
     assert await coordinator.async_reboot_router() is False
     assert coordinator._last_login_at is None
+    assert coordinator.rebooting is True
+    assert coordinator.available is False
+    assert coordinator.data["router_info"]["status"] == "unavailable"
+    assert coordinator.data["router_info"]["router_connected"] is False
+
+
+@pytest.mark.asyncio
+async def test_async_update_data_reports_rebooting_until_router_recovers(mock_hass) -> None:
+    """Failed polls during reboot should not fall back to an unknown status."""
+    client = _client(login=Mock(return_value=False))
+    coordinator = _make_coordinator(mock_hass, _entry(), client)
+    coordinator._rebooting = True
+
+    result = await coordinator._async_update_data()
+
+    assert result["router_info"]["status"] == "rebooting"
+    assert result["router_info"]["router_connected"] is False
+    assert result["router_info"]["internet_connected"] is None
+    assert result["router_info"]["fiber_connected"] is None
+
+
+@pytest.mark.asyncio
+async def test_async_reboot_router_clears_stale_optical_fields(mock_hass) -> None:
+    """Rebooting should make LOS unavailable instead of exposing stale optical values."""
+    client = _client(reboot=Mock(side_effect=RuntimeError("boom")))
+    coordinator = _make_coordinator(mock_hass, _entry(), client)
+    coordinator.data = {
+        "devices": {},
+        "router_info": {
+            "status": "connected",
+            "router_connected": True,
+            "PON_loss_of_signal": False,
+            "PON_onu_state": "O5",
+            "WAN_connected": True,
+        },
+    }
+
+    assert await coordinator.async_reboot_router() is False
+
+    assert "PON_loss_of_signal" not in coordinator.data["router_info"]
+    assert "PON_onu_state" not in coordinator.data["router_info"]
+    assert "WAN_connected" not in coordinator.data["router_info"]
 
 
 def test_enrich_topology_prefers_legacy_when_mesh_is_smaller(mock_hass) -> None:

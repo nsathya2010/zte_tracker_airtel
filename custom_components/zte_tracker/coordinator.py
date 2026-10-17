@@ -7,8 +7,19 @@ from datetime import datetime, timedelta
 import logging
 from typing import Any
 
+from homeassistant.components.logbook.const import (
+    LOGBOOK_ENTRY_DOMAIN,
+    LOGBOOK_ENTRY_MESSAGE,
+    LOGBOOK_ENTRY_NAME,
+)
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_MODEL, CONF_PASSWORD, CONF_USERNAME
+from homeassistant.const import (
+    CONF_HOST,
+    CONF_MODEL,
+    CONF_PASSWORD,
+    CONF_USERNAME,
+    EVENT_LOGBOOK_ENTRY,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -88,6 +99,7 @@ class ZteDataCoordinator(DataUpdateCoordinator):
         )
         self._available = True
         self._paused = False
+        self._rebooting = False
         self._register_new_devices = entry.options.get(CONF_REGISTER_NEW_DEVICES, True)
         self._last_device_count = 0
         self._stable_count = 0
@@ -190,6 +202,11 @@ class ZteDataCoordinator(DataUpdateCoordinator):
         return self._paused
 
     @property
+    def rebooting(self) -> bool:
+        """Return if the router is currently rebooting."""
+        return self._rebooting
+
+    @property
     def register_new_devices(self) -> bool:
         """Return if new devices should be registered as entities."""
         return self._register_new_devices
@@ -273,6 +290,47 @@ class ZteDataCoordinator(DataUpdateCoordinator):
             )
             self.update_interval = new_interval
 
+    def _publish_runtime_state(
+        self,
+        *,
+        status: str,
+        router_connected: bool,
+        internet_connected: bool | None = None,
+        fiber_connected: bool | None = None,
+    ) -> None:
+        """Publish immediate router state changes without waiting for the next poll."""
+        current_data = self.data or {}
+        router_info = dict(current_data.get("router_info", {}))
+        for key in list(router_info):
+            if key.startswith("PON_") or key == "WAN_connected":
+                router_info.pop(key)
+        router_info.update(
+            {
+                "host": self.client.host,
+                "model": self.client.model,
+                "status": status,
+                "router_connected": router_connected,
+                "internet_connected": internet_connected,
+                "fiber_connected": fiber_connected,
+            }
+        )
+        devices = {
+            mac: device.copy()
+            for mac, device in current_data.get("devices", {}).items()
+        }
+        self.async_set_updated_data({"devices": devices, "router_info": router_info})
+
+    def _async_log_activity(self, message: str) -> None:
+        """Write a router lifecycle message to Home Assistant Activity."""
+        self.hass.bus.async_fire(
+            EVENT_LOGBOOK_ENTRY,
+            {
+                LOGBOOK_ENTRY_NAME: f"ZTE Router {self.client.host}",
+                LOGBOOK_ENTRY_MESSAGE: message,
+                LOGBOOK_ENTRY_DOMAIN: DOMAIN,
+            },
+        )
+
     async def async_reboot_router(self) -> bool:
         """Reboot the router."""
 
@@ -283,11 +341,24 @@ class ZteDataCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("Failed to reboot router: %s", ex)
                 return False
 
+        self._rebooting = True
+        self._available = False
+        self._publish_runtime_state(status="rebooting", router_connected=False)
+        self._async_log_activity("Reboot requested.")
+        self._async_log_activity("Trying to reconnect to the router.")
+
         async with self._client_lock:
             result = await self.hass.async_add_executor_job(_reboot)
             # Reboot invalidates any session we held.
             self._last_login_at = None
-            return result
+
+        if result:
+            await self.async_request_refresh()
+        else:
+            self._publish_runtime_state(status="unavailable", router_connected=False)
+            self._async_log_activity("Reboot failed or the router did not come back online.")
+
+        return result
 
     def _apply_los_state(self, router_info: dict[str, Any], now: datetime) -> None:
         """Track LOS transitions and attach timing metadata to router info."""
@@ -641,11 +712,14 @@ class ZteDataCoordinator(DataUpdateCoordinator):
                     "router_connected": False,
                     "internet_connected": None,
                     "fiber_connected": None,
-                    "status": "unavailable",
+                    "status": "rebooting" if self._rebooting else "unavailable",
                 },
             }
 
         # Have info to return. Tracker is working.
+        if self._rebooting:
+            self._async_log_activity("Router connection is back online.")
+        self._rebooting = False
         self._available = True
         self._last_successful_update = datetime.now()
 

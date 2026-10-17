@@ -44,6 +44,12 @@ class ZteRebootButton(CoordinatorEntity, ButtonEntity):
             model=getattr(coordinator.client, "model", "unknown"),
         )
 
+    @property
+    def available(self) -> bool:
+        """Disable the reboot button whenever the router is not connected."""
+        router_info = (self.coordinator.data or {}).get("router_info", {})
+        return router_info.get("router_connected") is True
+
     async def async_press(self) -> None:  # type: ignore[override]
         """Handle the button press to reboot the router."""
         host = getattr(self.coordinator.client, "host", "unknown")

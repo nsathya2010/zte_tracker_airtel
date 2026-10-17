@@ -62,7 +62,7 @@ _REBOOT_PUBLIC_KEYS = {
 }
 
 _MODELS = {
-    "F6640": {
+    "F670L": {
         "wlan_script": "wlan_client_stat_lua.lua",
         "wlan_id_element": "OBJ_WLAN_AD_ID",
         "lan_script": "accessdev_landevs_lua.lua",
@@ -73,94 +73,17 @@ _MODELS = {
         "tag_wan_status_data": "wan_internetstatus_lua.lua&TypeUplink=2&pageType=1",
         "topo_data_tag": "topo_lua.lua",
         "default_scheme": "https",
-    },
-    "H288A": {
-        "wlan_script": "accessdev_ssiddev_lua.lua",
-        "wlan_id_element": "OBJ_ACCESSDEV_ID",
-        "lan_script": "accessdev_landevs_lua.lua",
-        "lan_id_element": "OBJ_ACCESSDEV_ID",
-        "type_first_request": "menuView",
-        "type_main_request": "menuData",
-        "tag_wan_status_view": "ethWanStatus&Menu3Location=0",
-        "tag_wan_status_data": "wan_internetstatus_lua.lua&TypeUplink=2&pageType=1",
-        "default_scheme": "https",
-    },
-    "H388X": {
-        "wlan_script": "accessdev_ssiddev_lua.lua",
-        "wlan_id_element": "OBJ_ACCESSDEV_ID",
-        "lan_script": "accessdev_landevs_lua.lua",
-        "lan_id_element": "OBJ_ACCESSDEV_ID",
-        "type_first_request": "menuView",
-        "type_main_request": "menuData",
-        "tag_wan_status_view": "ethWanStatus&Menu3Location=0",
-        "tag_wan_status_data": "wan_internet_lua.lua&TypeUplink=2&pageType=1",  # Reported in #44 wan_internetstatus_lua does not work on H388X
-        "default_scheme": "https",
-    },
-    "E2631": {
-        "wlan_script": "vue_client_data",
-        "wlan_id_element": "OBJ_CLIENTS_ID",
-        "lan_script": "localnet_lan_info_lua",
-        "lan_id_element": "OBJ_LAN_INFO_ID",
-        "type_first_request": "vueData",
-        "type_main_request": "vueData",
-        "tag_wan_status_view": "vue_home_device_data_no_update_sess",
-        "tag_wan_status_data": "vue_mainwan_data",
-        "default_scheme": "https",
-    },
+        "reboot_public_key_id": "zte_v9_4096",
+        "reboot_request_style": "browser_xhr",
+        "reboot_session_token_source": "tmp",
+        "reboot_expect_disconnect": True,
+        "reboot_disconnect_timeout": 30,
+        "reboot_recovery_timeout": 300,
+        "reboot_recovery_poll_interval": 5,
+        "tag_pon_optical_view": "ponopticalinfo&Menu3Location=0",
+        "tag_pon_optical_data": "optical_info_lua.lua",
+    }
 }
-
-# Add synonyms
-_MODELS["H169A"] = _MODELS["H288A"]
-_MODELS["H168A"] = {
-    **_MODELS["H288A"],
-    "wlan_id_element": "OBJ_LOCALNETWORK_STATUS_ACCESSDEV_ID",
-    "lan_id_element": "OBJ_LOCALNETWORK_STATUS_ACCESSDEV_ID",
-}
-_MODELS["F6645P"] = _MODELS["F6640"]
-_MODELS["H3600P"] = _MODELS["H288A"]
-_MODELS["H6645P"] = _MODELS["H288A"]
-_MODELS["H3640"] = _MODELS["H288A"]
-_MODELS["H6745"] = _MODELS["H288A"]
-_MODELS["E2631"] = _MODELS["E2631"]
-_MODELS["SR7410"] = _MODELS["E2631"]
-_MODELS["SR7110"] = _MODELS["E2631"]
-_MODELS["F680"] = _MODELS["F6640"]
-# ZTE H2640: shares H288A's endpoints but the router verifies an
-# unencrypted SHA256 hex digest in the reboot Check header, not RSA-encrypted.
-# Also a VDSL/ADSL modem: WAN status via dsl_interface_status_lua.lua.
-_MODELS["H2640"] = {
-    **_MODELS["H288A"],
-    "reboot_check_encrypted": False,
-    "tag_wan_status_view": "dslWanStatus",
-    "tag_wan_status_data": "dsl_interface_status_lua.lua",
-    "wan_status_root": "OBJ_DSLINTERFACE_ID",
-    "wan_status_kind": "dsl",
-}
-# ZTE F8748 (GPON ONT) - DIGI Portugal ISP unit, firmware V3.0.10P2N4.
-# Defined as a distinct model (not a plain F6640 alias): it shares the F6640
-# web-console endpoints, but this firmware also exposes WAN traffic counters
-# (RxBytes/TxBytes/packets/errors) in wan_internetstatus_lua.lua. The
-# "parse_wan_traffic" flag enables extracting those without assuming other
-# F6640-family routers populate the same fields.
-_MODELS["F8748"] = {
-    **_MODELS["F6640"],
-    "parse_wan_traffic": True,
-}
-# Distinct model, not a plain F6640 alias: only confirmed units expose GPON optical diagnostics, so tag_pon_optical_* stays opt-in per model.
-_MODELS["F6600P"] = {
-    **_MODELS["F6640"],
-    "reboot_public_key_id": "zte_v9_4096",
-    "reboot_request_style": "browser_xhr",
-    "reboot_session_token_source": "tmp",
-    "reboot_expect_disconnect": True,
-    "reboot_disconnect_timeout": 30,
-    "reboot_recovery_timeout": 300,
-    "reboot_recovery_poll_interval": 5,
-    "tag_pon_optical_view": "ponopticalinfo&Menu3Location=0",
-    "tag_pon_optical_data": "optical_info_lua.lua",
-}
-_MODELS["F6745Q"] = _MODELS["F6600P"]
-_MODELS["F670L"] = _MODELS["F6600P"]
 
 
 class zteClient:

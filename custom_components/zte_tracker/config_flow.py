@@ -92,7 +92,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_HOST, default=DEFAULT_HOST): cv.string,
         vol.Required(CONF_USERNAME, default=DEFAULT_USERNAME): cv.string,
         vol.Required(CONF_PASSWORD, default=DEFAULT_PASSWORD): cv.string,
-        vol.Required(CONF_MODEL, default="F6640"): vol.In(zteClient.get_models()),
+        vol.Required(CONF_MODEL, default="F670L"): vol.In(zteClient.get_models()),
         vol.Required(
             CONF_QUERY_WAN_STATUS, default=DEFAULT_QUERY_WAN_STATUS
         ): cv.boolean,
@@ -220,7 +220,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_PASSWORD, default=defaults.get(CONF_PASSWORD, DEFAULT_PASSWORD)
                 ): cv.string,
                 vol.Required(
-                    CONF_MODEL, default=defaults.get(CONF_MODEL, "F6640")
+                    CONF_MODEL, default=defaults.get(CONF_MODEL, "F670L")
                 ): vol.In(zteClient.get_models()),
                 vol.Required(
                     CONF_QUERY_WAN_STATUS,
@@ -273,7 +273,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         current_host = self._config_entry.data.get(CONF_HOST, DEFAULT_HOST)
         current_username = self._config_entry.data.get(CONF_USERNAME, DEFAULT_USERNAME)
         current_password = self._config_entry.data.get(CONF_PASSWORD, DEFAULT_PASSWORD)
-        current_model = self._config_entry.data.get(CONF_MODEL, "F6640")
+        current_model = self._config_entry.data.get(CONF_MODEL, "F670L")
         current_wan = self._config_entry.options.get(
             CONF_QUERY_WAN_STATUS,
             self._config_entry.data.get(

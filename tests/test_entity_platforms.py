@@ -111,6 +111,7 @@ async def test_button_setup_and_press_paths(mock_hass) -> None:
     assert entity.name == "ZTE Router 192.168.1.1 Reboot"
     assert entity.unique_id == "entry-1_reboot"
     assert entity.device_info["model"] == "F6640"
+    assert entity.available is True
 
     await entity.async_press()
     coordinator.async_reboot_router.assert_awaited_once()
@@ -122,6 +123,18 @@ async def test_button_setup_and_press_paths(mock_hass) -> None:
     coordinator.async_reboot_router = AsyncMock(side_effect=RuntimeError("boom"))
     with pytest.raises(HomeAssistantError, match="Exception while rebooting"):
         await button.ZteRebootButton(coordinator, entry).async_press()
+
+
+def test_button_unavailable_while_router_is_rebooting_or_offline() -> None:
+    """The reboot button should stay disabled until the router is reachable."""
+    entry = _entry()
+    coordinator = _coordinator()
+
+    entity = button.ZteRebootButton(coordinator, entry)
+    assert entity.available is True
+
+    coordinator.data["router_info"]["router_connected"] = False
+    assert entity.available is False
 
 
 @pytest.mark.asyncio
