@@ -6,17 +6,18 @@
 [![Validate with HACS](https://github.com/juacas/zte_tracker/actions/workflows/hacsaction.yml/badge.svg)](https://github.com/juacas/zte_tracker/actions/workflows/hacsaction.yml)
 [![Tests](https://github.com/juacas/zte_tracker/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/juacas/zte_tracker/actions/workflows/tests.yml)
 
-
 ![GitHub contributors](https://img.shields.io/github/contributors/juacas/zte_tracker)
 ![Maintenance](https://img.shields.io/maintenance/yes/2026)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/y/juacas/zte_tracker)
 ![GitHub commits since tagged version](https://img.shields.io/github/commits-since/juacas/zte_tracker/v1.0.0)
 ![GitHub last commit](https://img.shields.io/github/last-commit/juacas/zte_tracker)
 ![installation_badge](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.zte_tracker.total)
+
 > [!NOTE]
 > **Project stewardship**
 >
 > With huge generosity, [@lebdim](https://github.com/lebdim) has contributed substantially to this integration and is now in charge of the project. Please join me in thanking him and direct future maintenance and support contributions his way. The call remains open for additional maintainers and collaborators who would like to help keep the project growing.
+
 # ZTE Router Integration for Home Assistant
 
 A modern, feature-rich integration for ZTE routers that provides comprehensive device tracking and router management capabilities for Home Assistant.
@@ -40,7 +41,6 @@ A modern, feature-rich integration for ZTE routers that provides comprehensive d
 - **Real-time statistics** including device counts and connection status
 - **Router details available as sensor attributes** (model, firmware, uptime, WAN info, etc.) Wan details and router details scans can be disabled to avoid extra load and warnings on unsupported models by setting the corresponding options to false.
 
-
 ### Performance & Reliability
 
 - **Adaptive polling intervals** - automatically adjusts based on network stability
@@ -61,7 +61,6 @@ A modern, feature-rich integration for ZTE routers that provides comprehensive d
 ### Sensors
 
 - **Router Status Sensor** (`sensor.zte_router_[ip]`)
-
   - State: `on`, `paused`, or `unavailable`
   - Attributes:
     - device list
@@ -145,16 +144,16 @@ Writes a JSON file into `zte_tracker_support/` describing the **structure** of y
 ```yaml
 action: zte_tracker.export_support_bundle
 data:
-  acknowledge_sensitive_data: true   # required
-  host: 192.168.1.1                  # optional, one router instead of all
+  acknowledge_sensitive_data: true # required
+  host: 192.168.1.1 # optional, one router instead of all
 ```
 
-| Summary field | Meaning |
-|---------------|---------|
-| `best_matching_profile` | The profile your router answered. Usually supportable as an alias of it |
-| `tied_profiles` | Profiles sharing every endpoint, so probing cannot separate them |
-| `nodes_not_understood` | Data your firmware returns that no parser reads yet |
-| `endpoints_answered_empty` | Endpoints that exist and returned no devices |
+| Summary field              | Meaning                                                                 |
+| -------------------------- | ----------------------------------------------------------------------- |
+| `best_matching_profile`    | The profile your router answered. Usually supportable as an alias of it |
+| `tied_profiles`            | Profiles sharing every endpoint, so probing cannot separate them        |
+| `nodes_not_understood`     | Data your firmware returns that no parser reads yet                     |
+| `endpoints_answered_empty` | Endpoints that exist and returned no devices                            |
 
 > [!NOTE]
 > No hostname, SSID, serial, MAC or IP address is collected: only node and field names, record counts, and the shape of each value. Names come from your firmware, so have a look before attaching it.
@@ -201,26 +200,26 @@ For ZTE mesh networks (e.g. F6600P Controller + H196A Agent), enable **Mesh topo
 
 ## 🔧 Compatible Routers
 
-| Router Model  | Model Parameter | Verified |
-| ------------- | :-------------: | :------: |
-| ZTE F6640     |      F6640      |    ✅    |
-| ZTE F6645P    |     F6645P      |    ✅    |
-| ZTE F680    |      F680      |    ✅    |
-| ZTE F6745Q  |     F6745Q      |    ✅    |
-| ZTE F6600P  |     F6600P      |    ✅    |
-| ZTE F670L V9.0.10P18N3D  |     F670L      |    🟡    |
-| ZTE F8748   |      F8748      |    ✅    |
-| ZTE H168A V2.1 |     H168A      |    ✅    |
-| ZTE H169A     |      H169A      |    ✅    |
-| ZTE H2640     |      H2640      |    ✅    |
-| ZTE H288A     |      H288A      |    ✅    |
-| ZTE H388X     |      H388X      |    ✅    |
-| ZTE H3600P    |     H3600P      |    ✅    |
-| ZTE H3640 V10 |      H3640      |    ✅    |
-| ZTE H6645P V2 |     H6645P      |    ✅    |
-| ZTE H6745 V3  |      H6745      |    ✅    |
-| ZTE AX3000    |      E2631      |    ✅    |
-| ZTE SR7410 (ZTE BE7200 Pro+)   |      SR7410      |    ✅    |
+| Router Model                 | Model Parameter | Verified |
+| ---------------------------- | :-------------: | :------: |
+| ZTE F6640                    |      F6640      |    ✅    |
+| ZTE F6645P                   |     F6645P      |    ✅    |
+| ZTE F680                     |      F680       |    ✅    |
+| ZTE F6745Q                   |     F6745Q      |    ✅    |
+| ZTE F6600P                   |     F6600P      |    ✅    |
+| ZTE F670L V9.0.10P18N3D      |      F670L      |    🟡    |
+| ZTE F8748                    |      F8748      |    ✅    |
+| ZTE H168A V2.1               |      H168A      |    ✅    |
+| ZTE H169A                    |      H169A      |    ✅    |
+| ZTE H2640                    |      H2640      |    ✅    |
+| ZTE H288A                    |      H288A      |    ✅    |
+| ZTE H388X                    |      H388X      |    ✅    |
+| ZTE H3600P                   |     H3600P      |    ✅    |
+| ZTE H3640 V10                |      H3640      |    ✅    |
+| ZTE H6645P V2                |     H6645P      |    ✅    |
+| ZTE H6745 V3                 |      H6745      |    ✅    |
+| ZTE AX3000                   |      E2631      |    ✅    |
+| ZTE SR7410 (ZTE BE7200 Pro+) |     SR7410      |    ✅    |
 
 > **Note**: This integration may work with additional ZTE router models. Try one of the above parameter values to test compatibility.
 
@@ -281,9 +280,11 @@ python3 -m pytest tests/zteclient/test_client_runtime.py tests/test_entity_platf
 ```
 
 If an `F670L` reboot still fails with HTTP 400, capture the exact network request sent by the router's own web UI when you click its reboot button. The required evidence is the HTTP method, URL, query string, headers, request body, and the response status/body after login. Without that capture, the integration can only reuse the closest verified V9 GPON reboot profile rather than claim full reboot compatibility.
+
 ## Add to your dashboard
 
 ### With auto-entities card
+
 To automatically display all connected devices on your dashboard, you can use the [auto-entities](https://github.com/thomasloven/lovelace-auto-entities) card.
 
 ```yaml
@@ -343,7 +344,7 @@ The integration automatically adjusts polling intervals based on network activit
 
 ### Poll Interval
 
-In the integration options, **Refresh speed → Poll interval** is *Adaptive balanced* by default (behaviour above). *Adaptive fast* uses the same logic with 10/30/60 s steps, so changes are noticed sooner but the router is polled more often. *Adaptive relaxed* uses 60/120/300 s steps to put less load on the router.
+In the integration options, **Refresh speed → Poll interval** is _Adaptive balanced_ by default (behaviour above). _Adaptive fast_ uses the same logic with 10/30/60 s steps, so changes are noticed sooner but the router is polled more often. _Adaptive relaxed_ uses 60/120/300 s steps to put less load on the router.
 
 ### Refresh When a Device Joins (off by default)
 
@@ -451,7 +452,6 @@ pytest custom_components/zte_tracker/tests/
 - **@LeMehdi0** for F6745Q support bundle (#106)
 - **@enisyugnak** for H168A support bundle (#112)
 
-
 ## 📄 License
 
 This project is licensed under the GNU License - see the [LICENSE](LICENSE) file for details.
@@ -521,28 +521,23 @@ Below are the actual URL sequences used by the integration for the most common Z
 #### **F6640 / F6645P**
 
 - **Login Sequence:**
-
   1. `GET  https://[router_ip]/?_type=loginData&_tag=login_entry`
   2. `GET  https://[router_ip]/?_type=loginData&_tag=login_token&_=[guid]`
   3. `POST https://[router_ip]/?_type=loginData&_tag=login_entry` (with hashed password and session token)
 
 - **Get WiFi Devices:**
-
   1. `GET  https://[router_ip]/?_type=menuView&_tag=localNetStatus&_=[guid]`
   2. `GET  https://[router_ip]/?_type=menuData&_tag=wlan_client_stat_lua.lua&_=[guid]`
 
 - **Get LAN Devices:**
-
   1. `GET  https://[router_ip]/?_type=menuView&_tag=localNetStatus&_=[guid]`
   2. `GET  https://[router_ip]/?_type=menuData&_tag=accessdev_landevs_lua.lua&_=[guid]`
 
 - **Get Router Details:**
-
   1. `GET  https://[router_ip]/?_type=menuView&_tag=statusMgr&Menu3Location=0&_=[guid]`
   2. `GET  https://[router_ip]/?_type=menuData&_tag=devmgr_statusmgr_lua.lua&_=[guid]`
 
 - **Get WAN Status:**
-
   1. `GET  https://[router_ip]/?_type=menuView&_tag=ethWanStatus&Menu3Location=0&_=[guid]`
   2. `GET  https://[router_ip]/?_type=menuData&_tag=wan_internetstatus_lua.lua&TypeUplink=2&pageType=1&_=[guid]`
 
@@ -603,6 +598,7 @@ logger:
 Look for any errors or warnings related to login attempts. Example:
 
 Typical successful login sequence:
+
 ```
 2025-09-01 08:27:18.699 DEBUG (SyncWorker_1) [custom_components.zte_tracker.zteclient.zte_client] Request 200 URL: https://ROUTER_IP/?_type=loginData&_tag=login_entry Headers: {..., 'Cookie': 'SID_HTTPS_=ANON_COOKIE'}
 2025-09-01 08:27:18.873 DEBUG (SyncWorker_1) [custom_components.zte_tracker.zteclient.zte_client] Request 200 URL: https://ROUTER_IP/?_type=loginData&_tag=login_token&_=[guid] Headers: {..., 'Cookie': 'SID_HTTPS_=ANON_COOKIE'}
@@ -611,6 +607,7 @@ Typical successful login sequence:
 ```
 
 Typical successful retrieval of devices:
+
 ```
 2025-09-01 08:27:19.294 DEBUG (SyncWorker_1) [custom_components.zte_tracker.zteclient.zte_client] Request 200 URL: https://ROUTER_IP/?_type=menuView&_tag=localNetStatus&_=GUID Headers: {..., 'Cookie': 'SID_HTTPS_=ANON_COOKIE'}
 2025-09-01 08:27:19.507 DEBUG (SyncWorker_1) [custom_components.zte_tracker.zteclient.zte_client] Request 200 URL: https://ROUTER_IP/?_type=menuData&_tag=accessdev_landevs_lua.lua&_GUID Headers: {..., 'Cookie': 'SID_HTTPS_=ANON_COOKIE'}
@@ -623,7 +620,9 @@ Typical successful retrieval of devices:
 2025-09-01 08:27:20.435 DEBUG (SyncWorker_1) [custom_components.zte_tracker.zteclient.zte_client] Request 200 URL: https://ROUTER_IP/?_type=menuView&_tag=statusMgr&Menu3Location=0&_=GUID Headers: {..., 'Cookie': 'SID_HTTPS_=ANON_COOKIE'}
 2025-09-01 08:27:20.645 DEBUG (SyncWorker_1) [custom_components.zte_tracker.zteclient.zte_client] Request 200 URL: https://ROUTER_IP/?_type=menuData&_tag=devmgr_statusmgr_lua.lua&_=GUID Headers: {..., 'Cookie': 'SID_HTTPS_=ANON_COOKIE'}
 ```
+
 Typical successful logout sequence:
+
 ```
 2025-09-01 08:27:20.852 DEBUG (SyncWorker_1) [custom_components.zte_tracker.zteclient.zte_client] Request 200 URL: https://ROUTER_IP/?_type=loginData&_tag=logout_entry Headers: {..., 'Cookie': 'SID_HTTPS_=ANON_COOKIE'}
 2025-09-01 08:27:20.852 DEBUG (SyncWorker_1) [custom_components.zte_tracker.zteclient.zte_client] Logged out successfully

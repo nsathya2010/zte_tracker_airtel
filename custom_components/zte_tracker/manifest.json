@@ -1,7 +1,7 @@
 {
-  "domain": "zte_tracker",
-  "name": "ZTE router tracker",
-  "codeowners": ["@juacas","@lebdim"],
+  "domain": "zte_tracker_airtel",
+  "name": "ZTE router Airtel",
+  "codeowners": ["@juacas", "@lebdim"],
   "config_flow": true,
   "documentation": "https://github.com/juacas/zte_tracker",
   "iot_class": "local_polling",

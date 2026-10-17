@@ -84,7 +84,7 @@ _MODELS = {
         "tag_wan_status_view": "ethWanStatus&Menu3Location=0",
         "tag_wan_status_data": "wan_internetstatus_lua.lua&TypeUplink=2&pageType=1",
         "default_scheme": "https",
-    },    
+    },
     "H388X": {
         "wlan_script": "accessdev_ssiddev_lua.lua",
         "wlan_id_element": "OBJ_ACCESSDEV_ID",
