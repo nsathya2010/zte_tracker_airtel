@@ -168,7 +168,7 @@ async def test_sensor_setup_and_properties(mock_hass) -> None:
         entity for entity in added if isinstance(entity, sensor.ZteDeviceCountSensor)
     )
 
-    assert router_sensor.native_value == "connected"
+    assert router_sensor.native_value == "Connected"
     assert router_sensor.icon == ICON
     assert router_sensor.device_info["configuration_url"] == "https://192.168.1.1"
     with patch(

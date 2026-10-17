@@ -140,7 +140,8 @@ class ZteRouterSensor(ZteBaseSensor):
         """Return the state of the sensor."""
         data = self.coordinator.data or {}
         router_info = data.get("router_info", {})
-        return router_info.get("status", "unknown")
+        status = str(router_info.get("status", "unknown"))
+        return status.replace("_", " ").title()
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
