@@ -11,7 +11,7 @@ from homeassistant.components.device_tracker import SourceType
 from homeassistant.exceptions import HomeAssistantError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.zte_tracker import button, device_tracker, sensor, switch
+from custom_components.zte_tracker import binary_sensor, button, device_tracker, sensor, switch
 from custom_components.zte_tracker.const import (
     CONF_REGISTER_NEW_DEVICES,
     DOMAIN,
@@ -36,6 +36,7 @@ def _coordinator(devices: dict | None = None, router_info: dict | None = None):
         model="F6640",
         base_url="https://192.168.1.1",
         mesh_topology=False,
+        paths={},
     )
     coordinator.data = {
         "devices": devices or {},
@@ -170,6 +171,90 @@ async def test_sensor_setup_and_properties(mock_hass) -> None:
     assert count_sensor.extra_state_attributes == {
         "devices": ["AA:BB(Phone-10.0.0.2)", "CC:DD(Laptop-10.0.0.3)"],
         "num_devices": 1,
+    }
+
+
+@pytest.mark.asyncio
+async def test_gpon_optical_entities_expose_router_metrics(mock_hass) -> None:
+    """GPON models should create dedicated optical sensors and LOS alarm."""
+    entry = _entry()
+    coordinator = _coordinator(
+        router_info={
+            "PON_onu_state": "O5",
+            "PON_rx_power_dbm": -25.5284,
+            "PON_tx_power_dbm": 2.6698,
+            "PON_supply_voltage_mv": 3237.0,
+            "PON_bias_current_ma": 13.9,
+            "PON_temperature_c": 49.714,
+            "PON_loss_of_signal": False,
+        }
+    )
+    coordinator.client.model = "F670L"
+    coordinator.client.paths = {"tag_pon_optical_data": "optical_info_lua.lua"}
+    mock_hass.data = {DOMAIN: {entry.entry_id: coordinator}}
+
+    added_sensors: list = []
+    await sensor.async_setup_entry(mock_hass, entry, added_sensors.extend)
+
+    optical = {
+        entity.unique_id: entity
+        for entity in added_sensors
+        if isinstance(entity, sensor.ZteOpticalMetricSensor)
+    }
+    assert len(optical) == 6
+    assert optical["entry-1_pon_onu_state"].native_value == "O5"
+    assert optical["entry-1_pon_rx_power"].native_value == -25.5284
+    assert optical["entry-1_pon_supply_voltage"].native_value == 3237.0
+    assert optical["entry-1_pon_temperature"].native_value == 49.714
+
+    added_binary: list = []
+    await binary_sensor.async_setup_entry(mock_hass, entry, added_binary.extend)
+    assert len(added_binary) == 1
+    los_entity = added_binary[0]
+    assert isinstance(los_entity, binary_sensor.ZteLosBinarySensor)
+    assert los_entity.is_on is False
+    assert los_entity.available is True
+    assert los_entity.icon == "mdi:check-circle-outline"
+
+
+def test_los_sensor_distinguishes_unknown_from_confirmed_loss() -> None:
+    """LOS should only report state from the direct router flag."""
+    entry = _entry()
+    coordinator = _coordinator(router_info={"PON_onu_state": "O2"})
+    coordinator.client.paths = {"tag_pon_optical_data": "optical_info_lua.lua"}
+
+    entity = binary_sensor.ZteLosBinarySensor(coordinator, entry)
+    assert entity.is_on is None
+    assert entity.available is False
+
+    coordinator.data["router_info"]["PON_loss_of_signal"] = True
+    assert entity.is_on is True
+    assert entity.available is True
+    assert entity.icon == "mdi:alarm-light"
+
+
+def test_los_sensor_exposes_outage_timing_attributes() -> None:
+    """LOS entity should expose current and previous outage metadata."""
+    entry = _entry()
+    coordinator = _coordinator(
+        router_info={
+            "PON_loss_of_signal": True,
+            "PON_onu_state": "O2",
+            "PON_los_since": "2026-01-01T10:00:00",
+            "PON_los_duration_seconds": 42,
+            "PON_last_outage_seconds": 33,
+            "PON_last_recovery_at": "2026-01-01T09:30:00",
+        }
+    )
+    coordinator.client.paths = {"tag_pon_optical_data": "optical_info_lua.lua"}
+
+    entity = binary_sensor.ZteLosBinarySensor(coordinator, entry)
+    assert entity.extra_state_attributes == {
+        "onu_state": "O2",
+        "los_since": "2026-01-01T10:00:00",
+        "los_duration_seconds": 42,
+        "last_outage_seconds": 33,
+        "last_recovery_at": "2026-01-01T09:30:00",
     }
 
 

@@ -31,6 +31,36 @@ warnings.filterwarnings(
 
 _LOGGER = logging.getLogger(__name__)
 
+_REBOOT_PUBLIC_KEYS = {
+    "default_2048": (
+        "-----BEGIN PUBLIC KEY-----\n"
+        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAodPTerkUVCYmv28SOfRV\n"
+        "7UKHVujx/HjCUTAWy9l0L5H0JV0LfDudTdMNPEKloZsNam3YrtEnq6jqMLJV4ASb\n"
+        "1d6axmIgJ636wyTUS99gj4BKs6bQSTUSE8h/QkUYv4gEIt3saMS0pZpd90y6+B/9\n"
+        "hZxZE/RKU8e+zgRqp1/762TB7vcjtjOwXRDEL0w71Jk9i8VUQ59MR1Uj5E8X3WIc\n"
+        "fYSK5RWBkMhfaTRM6ozS9Bqhi40xlSOb3GBxCmliCifOJNLoO9kFoWgAIw5hkSIb\n"
+        "GH+4Csop9Uy8VvmmB+B3ubFLN35qIa5OG5+SDXn4L7FeAA5lRiGxRi8tsWrtew8w\n"
+        "nwIDAQAB\n"
+        "-----END PUBLIC KEY-----"
+    ),
+    "zte_v9_4096": (
+        "-----BEGIN PUBLIC KEY-----\n"
+        "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAwlo/vZBnSJ2MyJ0dbNcw\n"
+        "DvzPqBN+O/BPvLX93GIJVSZmquJHD9X6Xn6VYeM9mRKzjEbXPlv73Dj/gjjtNj9j\n"
+        "Tq2QVyW2Sd4ZkY9e3h1ALCCCfkbjnmSqedyrcvXriTeW+J65jhBje6lTJbafmC5q\n"
+        "bGiItjt0OeOkT+Vb4S7hYPSWIjeYYBh+7Y/fg25Rt2a+RgC8dahvJ3ttB1LHXADr\n"
+        "oCm6q7G+lpbRAlpC8jjc0rZdS0c6HcBoYgzW8vxjj2fTuFy3CZZTrpPyTv/C8K6B\n"
+        "hjTnjRe6ocgFVyQ0RIYfx2hxSJcuauR57OzfMzlgFQv3RAXguDZtuVUFLO2sAiwL\n"
+        "ELph3Acfy9Eh58SHcswZvsOSXY0JNb0XeRM9gxpntLRfM6TB7f9hYtYTDw5oKdyN\n"
+        "BY+nnEa/IpBUjndGDrSs3Z4BxRbYcJEwkKQZkvw/5TpQYbkD6sTRVSlZPaXSjeCl\n"
+        "0hsLCttqwJqRZcjbWXrINBYFw8PYE14Xr9BCyPgqocdQh7FgvasVgG6u5mLR1PBZ\n"
+        "o4EFF/LdY0yvMG5rl9egBk1XD/UMayhRtmSQEUzYt3eEWLBbqJB6MbVJ2ygcv5EL\n"
+        "ReDY0SWXw1PIEbHeP51A/MyB6kwSgZwdoQW3JiaPnGHMaE0NqfAYPNiGJLMsmvT/\n"
+        "rNUI/8iSCW+WvSzx9tByUxsCAwEAAQ==\n"
+        "-----END PUBLIC KEY-----"
+    ),
+}
+
 _MODELS = {
     "F6640": {
         "wlan_script": "wlan_client_stat_lua.lua",
@@ -119,10 +149,18 @@ _MODELS["F8748"] = {
 # Distinct model, not a plain F6640 alias: only confirmed units expose GPON optical diagnostics, so tag_pon_optical_* stays opt-in per model.
 _MODELS["F6600P"] = {
     **_MODELS["F6640"],
+    "reboot_public_key_id": "zte_v9_4096",
+    "reboot_request_style": "browser_xhr",
+    "reboot_session_token_source": "tmp",
+    "reboot_expect_disconnect": True,
+    "reboot_disconnect_timeout": 30,
+    "reboot_recovery_timeout": 300,
+    "reboot_recovery_poll_interval": 5,
     "tag_pon_optical_view": "ponopticalinfo&Menu3Location=0",
     "tag_pon_optical_data": "optical_info_lua.lua",
 }
 _MODELS["F6745Q"] = _MODELS["F6600P"]
+_MODELS["F670L"] = _MODELS["F6600P"]
 
 
 class zteClient:
@@ -998,24 +1036,250 @@ class zteClient:
                 }
 
             optical = _fields("OBJ_PON_OPTICALPARA_ID")
-            # Volt/Current/RFTxPower are plain ints of unconfirmed unit, left out rather than guessed at.
-            if optical.get("RxPower") is not None:
-                pon_attrs["PON_rx_power_dbm"] = float(optical["RxPower"])
-            if optical.get("TxPower") is not None:
-                pon_attrs["PON_tx_power_dbm"] = float(optical["TxPower"])
-            if optical.get("Temp") is not None:
-                pon_attrs["PON_temperature_c"] = float(optical["Temp"])
+            rx_power = self._safe_float(optical.get("RxPower"))
+            if rx_power is not None:
+                pon_attrs["PON_rx_power_dbm"] = rx_power
+
+            tx_power = self._safe_float(optical.get("TxPower"))
+            if tx_power is not None:
+                pon_attrs["PON_tx_power_dbm"] = tx_power
+
+            temperature = self._safe_float(optical.get("Temp"))
+            if temperature is not None:
+                pon_attrs["PON_temperature_c"] = temperature
+
+            supply_voltage = self._safe_float(optical.get("Volt"))
+            if supply_voltage is not None:
+                pon_attrs["PON_supply_voltage_mv"] = supply_voltage
+
+            bias_current = self._safe_float(optical.get("Current"))
+            if bias_current is not None:
+                pon_attrs["PON_bias_current_ma"] = bias_current
 
             los = _fields("OBJ_LOS_INFO_ID")
             if los.get("LosInfo") is not None:
                 pon_attrs["PON_loss_of_signal"] = los["LosInfo"] != "0"
 
             reg = _fields("OBJ_GPONREGSTATUS_ID")
-            if reg.get("RegStatus") is not None:
-                pon_attrs["PON_registration_status"] = int(reg["RegStatus"])
+            reg_status = self._safe_int(reg.get("RegStatus"))
+            if reg_status is not None:
+                pon_attrs["PON_registration_status"] = reg_status
+                pon_attrs["PON_onu_state"] = f"O{reg_status}"
         except Exception as ex:
             _LOGGER.warning(f"Failed to fetch PON optical info: {ex}")
         return pon_attrs
+
+    @staticmethod
+    def _safe_float(value: Any) -> float | None:
+        """Parse a float from the router payload, returning None on bad input."""
+        if value in (None, ""):
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _safe_int(value: Any) -> int | None:
+        """Parse an int from the router payload, returning None on bad input."""
+        if value in (None, ""):
+            return None
+        try:
+            return int(str(value).strip())
+        except (TypeError, ValueError):
+            return None
+
+    def _get_reboot_public_key(self):
+        """Return the PEM public key used to sign reboot requests."""
+        key_id = self.paths.get("reboot_public_key_id", "default_2048")
+        pub_key_pem = _REBOOT_PUBLIC_KEYS.get(key_id)
+        if pub_key_pem is None:
+            raise ValueError(f"Unsupported reboot public key id: {key_id}")
+        return serialization.load_pem_public_key(pub_key_pem.encode("utf-8"))
+
+    @staticmethod
+    def _extract_session_tmp_token(page_text: str) -> str | None:
+        """Extract the reboot page tmp token used by V9 firmwares."""
+        marker = "_sessionTmpToken"
+        start = page_text.find(marker)
+        if start == -1:
+            return None
+
+        remainder = page_text[start + len(marker) :]
+        equals = remainder.find("=")
+        if equals == -1:
+            return None
+
+        remainder = remainder[equals + 1 :].lstrip()
+        if not remainder or remainder[0] not in {'"', "'"}:
+            return None
+
+        quote = remainder[0]
+        end = remainder.find(quote, 1)
+        if end == -1:
+            return None
+        token = remainder[1:end].strip()
+        if "\\x" in token:
+            try:
+                token = bytes(token, "utf-8").decode("unicode_escape")
+            except UnicodeDecodeError:
+                return None
+        if token:
+            return token
+        return None
+
+    def _probe_router_reachable(self, timeout: int = 5) -> bool:
+        """Return True when the router answers a lightweight login probe."""
+        try:
+            response = requests.get(
+                f"{self.base_url}/?_type=loginData&_tag=login_entry&_={int(time.time() * 1000)}",
+                verify=self.verify_ssl,
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            return True
+        except requests.RequestException:
+            return False
+
+    def _login_for_browser_style_reboot(self) -> bool:
+        """Run the browser-observed login sequence used by V9 reboot flows."""
+        try:
+            if self.session:
+                self.session.close()
+            self.session = None
+            self.login_data = None
+            self._setup_session()
+            if not self.session:
+                self.statusmsg = "Failed to initialize session for reboot"
+                return False
+
+            self.session.headers["X-Requested-With"] = "XMLHttpRequest"
+
+            r = self.session.get(
+                f"{self.base_url}/?_type=loginData&_tag=login_entry",
+                verify=self.verify_ssl,
+                timeout=10,
+            )
+            self.log_request(r)
+            r.raise_for_status()
+            payload = r.json()
+            session_token = payload.get("sess_token")
+            if payload.get("lockingTime", 0) != 0 or not session_token:
+                self.statusmsg = f"Unexpected login_entry response: {payload}"
+                return False
+
+            r = self.session.get(
+                f"{self.base_url}/?_type=loginData&_tag=login_token",
+                verify=self.verify_ssl,
+                timeout=10,
+            )
+            self.log_request(r)
+            r.raise_for_status()
+            xml_response = self._parse_response(r.content)
+            login_token = xml_response.text
+            if not login_token:
+                self.statusmsg = "Empty login_token received from router."
+                return False
+
+            password_param = hashlib.sha256(
+                (self.password + login_token).encode()
+            ).hexdigest()
+            r = self.session.post(
+                f"{self.base_url}/?_type=loginData&_tag=login_entry",
+                data={
+                    "action": "login",
+                    "Password": password_param,
+                    "Username": self.username,
+                    "_sessionTOKEN": session_token,
+                },
+                verify=self.verify_ssl,
+                timeout=10,
+            )
+            self.log_request(r)
+            r.raise_for_status()
+            self.login_data = r.json()
+            if self.login_data.get("lockingTime", 0) != 0:
+                self.statusmsg = f"Router lock state after login: {self.login_data}"
+                return False
+            if self.login_data.get("loginErrMsg"):
+                self.statusmsg = f"Router reported login error: {self.login_data['loginErrMsg']}"
+                return False
+
+            self.session.get(f"{self.base_url}/", verify=self.verify_ssl, timeout=10)
+            return True
+        except Exception as e:
+            self.statusmsg = f"Browser-style reboot login failed: {e}"
+            return False
+
+    def _new_reboot_probe_client(self):
+        """Create a fresh client instance for reboot recovery checks."""
+        return type(self)(
+            self.host,
+            self.username,
+            self.password,
+            self.model,
+            verify_ssl=self.verify_ssl,
+            query_wan_status=self.query_wan_status,
+            query_router_details=self.query_router_details,
+            scheme=self.scheme,
+            mesh_topology=self.mesh_topology,
+        )
+
+    def _wait_for_reboot_completion(self) -> bool:
+        """Treat reboot as successful only after the router drops and returns."""
+        if not self.paths.get("reboot_expect_disconnect"):
+            return True
+
+        disconnect_deadline = time.monotonic() + self.paths.get(
+            "reboot_disconnect_timeout", 30
+        )
+        recovery_deadline = time.monotonic() + self.paths.get(
+            "reboot_recovery_timeout", 300
+        )
+        poll_interval = self.paths.get("reboot_recovery_poll_interval", 5)
+
+        saw_disconnect = False
+        while time.monotonic() < disconnect_deadline:
+            if not self._probe_router_reachable():
+                saw_disconnect = True
+                break
+            time.sleep(1)
+
+        if not saw_disconnect:
+            self.statusmsg = "Reboot command sent, but router never became unreachable"
+            return False
+
+        while time.monotonic() < recovery_deadline:
+            if not self._probe_router_reachable():
+                time.sleep(poll_interval)
+                continue
+
+            probe_client = self._new_reboot_probe_client()
+            try:
+                if not probe_client.login():
+                    time.sleep(poll_interval)
+                    continue
+                if self.paths.get("tag_pon_optical_data") and self.paths.get(
+                    "tag_pon_optical_view"
+                ):
+                    optical = probe_client.get_pon_optical_info()
+                    if optical.get("PON_onu_state") or optical.get(
+                        "PON_registration_status"
+                    ) is not None:
+                        self.statusmsg = (
+                            "Reboot completed and PON diagnostics are reachable again."
+                        )
+                        return True
+                else:
+                    self.statusmsg = "Reboot completed and router is reachable again."
+                    return True
+            finally:
+                probe_client.logout()
+
+            time.sleep(poll_interval)
+
+        self.statusmsg = "Router went offline after reboot, but recovery was not confirmed"
+        return False
 
     _SENSITIVE_HEADERS = frozenset({"cookie", "authorization", "set-cookie"})
 
@@ -1176,18 +1440,32 @@ class zteClient:
     def reboot(self) -> bool:
         """Reboot the router using the secure endpoint."""
         try:
-            if not self.login():
+            reboot_style = self.paths.get("reboot_request_style")
+            if reboot_style == "browser_xhr":
+                logged_in = self._login_for_browser_style_reboot()
+            else:
+                logged_in = self.login()
+
+            if not logged_in:
                 _LOGGER.error("Login failed: %s", self.statusmsg)
                 return False
 
             # First load menuView url https://10.0.0.1/?_type=menuView&_tag=rebootAndReset&Menu3Location=0&_=1756621946066
-            menu_view_url = f"{self.base_url}/?_type=menuView&_tag=rebootAndReset&Menu3Location=0&_={self.get_guid()}"
+            if reboot_style == "browser_xhr":
+                menu_view_url = (
+                    f"{self.base_url}/?_type=menuView&_tag=rebootAndReset&Menu3Location=0"
+                )
+            else:
+                menu_view_url = f"{self.base_url}/?_type=menuView&_tag=rebootAndReset&Menu3Location=0&_={self.get_guid()}"
             r = self.session.get(menu_view_url, verify=self.verify_ssl, timeout=30)
             self.log_request(r)
             r.raise_for_status()
 
             # Now prepare the reboot request.
-            session_token = self.get_session_token()
+            if self.paths.get("reboot_session_token_source") == "tmp":
+                session_token = self._extract_session_tmp_token(r.text)
+            else:
+                session_token = self.get_session_token()
             if not session_token:
                 self.statusmsg = "Session token missing after login"
                 _LOGGER.error(self.statusmsg)
@@ -1195,40 +1473,8 @@ class zteClient:
 
             post_data = f"IF_ACTION=Restart&Btn_restart=&_sessionTOKEN={session_token}"
             digest_str = hashlib.sha256(post_data.encode("utf-8")).hexdigest()
-            if self.paths.get("reboot_check_encrypted", True):            
-                # F6600P uses a 4096-bit RSA key, other models use 2048-bit
-                if self.model == "F6600P":
-                    pub_key_pem = (
-                        "-----BEGIN PUBLIC KEY-----\n"
-                        "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAwlo/vZBnSJ2MyJ0dbNcw\n"
-                        "DvzPqBN+O/BPvLX93GIJVSZmquJHD9X6Xn6VYeM9mRKzjEbXPlv73Dj/gjjtNj9j\n"
-                        "Tq2QVyW2Sd4ZkY9e3h1ALCCCfkbjnmSqedyrcvXriTeW+J65jhBje6lTJbafmC5q\n"
-                        "bGiItjt0OeOkT+Vb4S7hYPSWIjeYYBh+7Y/fg25Rt2a+RgC8dahvJ3ttB1LHXADr\n"
-                        "oCm6q7G+lpbRAlpC8jjc0rZdS0c6HcBoYgzW8vxjj2fTuFy3CZZTrpPyTv/C8K6B\n"
-                        "hjTnjRe6ocgFVyQ0RIYfx2hxSJcuauR57OzfMzlgFQv3RAXguDZtuVUFLO2sAiwL\n"
-                        "ELph3Acfy9Eh58SHcswZvsOSXY0JNb0XeRM9gxpntLRfM6TB7f9hYtYTDw5oKdyN\n"
-                        "BY+nnEa/IpBUjndGDrSs3Z4BxRbYcJEwkKQZkvw/5TpQYbkD6sTRVSlZPaXSjeCl\n"
-                        "0hsLCttqwJqRZcjbWXrINBYFw8PYE14Xr9BCyPgqocdQh7FgvasVgG6u5mLR1PBZ\n"
-                        "o4EFF/LdY0yvMG5rl9egBk1XD/UMayhRtmSQEUzYt3eEWLBbqJB6MbVJ2ygcv5EL\n"
-                        "ReDY0SWXw1PIEbHeP51A/MyB6kwSgZwdoQW3JiaPnGHMaE0NqfAYPNiGJLMsmvT/\n"
-                        "rNUI/8iSCW+WvSzx9tByUxsCAwEAAQ==\n"
-                        "-----END PUBLIC KEY-----"
-                    )
-                else:
-                    pub_key_pem = (
-                        "-----BEGIN PUBLIC KEY-----\n"
-                        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAodPTerkUVCYmv28SOfRV\n"
-                        "7UKHVujx/HjCUTAWy9l0L5H0JV0LfDudTdMNPEKloZsNam3YrtEnq6jqMLJV4ASb\n"
-                        "1d6axmIgJ636wyTUS99gj4BKs6bQSTUSE8h/QkUYv4gEIt3saMS0pZpd90y6+B/9\n"
-                        "hZxZE/RKU8e+zgRqp1/762TB7vcjtjOwXRDEL0w71Jk9i8VUQ59MR1Uj5E8X3WIc\n"
-                        "fYSK5RWBkMhfaTRM6ozS9Bqhi40xlSOb3GBxCmliCifOJNLoO9kFoWgAIw5hkSIb\n"
-                        "GH+4Csop9Uy8VvmmB+B3ubFLN35qIa5OG5+SDXn4L7FeAA5lRiGxRi8tsWrtew8w\n"
-                        "nwIDAQAB\n"
-                        "-----END PUBLIC KEY-----"
-                    )
-                public_key = serialization.load_pem_public_key(
-                    pub_key_pem.encode("utf-8")
-                )
+            if self.paths.get("reboot_check_encrypted", True):
+                public_key = self._get_reboot_public_key()
                 encrypted_digest = public_key.encrypt(
                     digest_str.encode("utf-8"), padding.PKCS1v15()
                 )
@@ -1242,22 +1488,36 @@ class zteClient:
                 "Content-Type": "application/x-www-form-urlencoded",
             }
 
-            url = f"{self.base_url}/?_type=menuData&_tag=devmgr_restartmgr_lua.lua&_={self.get_guid()}"
-            r = self.session.post(
-                url, data=post_data, headers=headers, verify=self.verify_ssl, timeout=30
-            )
-            self.log_request(r)
-            r.raise_for_status()
-            # Check error in response.
-            xml = self._parse_response(r.content)
-            error_str = xml.findtext("IF_ERRORSTR")
-            if error_str and error_str not in ("SUCC", "SUCCESS", "OK"):
-                _LOGGER.error("Router error: %s", error_str)
-                _LOGGER.debug("Reboot response XML: %s", r.text)
-                raise Exception(f"Router error: {error_str}")
+            if reboot_style == "browser_xhr":
+                url = f"{self.base_url}/?_type=menuData&_tag=devmgr_restartmgr_lua.lua"
+                headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
+            else:
+                url = f"{self.base_url}/?_type=menuData&_tag=devmgr_restartmgr_lua.lua&_={self.get_guid()}"
+            try:
+                r = self.session.post(
+                    url,
+                    data=post_data,
+                    headers=headers,
+                    verify=self.verify_ssl,
+                    timeout=30,
+                )
+                self.log_request(r)
+                r.raise_for_status()
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+                if reboot_style != "browser_xhr":
+                    raise
+                r = None
+            # Some V9 firmwares acknowledge reboot with an empty 200 and then
+            # immediately drop off the network. Only parse XML when content exists.
+            if r and r.content and r.content.strip():
+                xml = self._parse_response(r.content)
+                error_str = xml.findtext("IF_ERRORSTR")
+                if error_str and error_str not in ("SUCC", "SUCCESS", "OK"):
+                    _LOGGER.error("Router error: %s", error_str)
+                    _LOGGER.debug("Reboot response XML: %s", r.text)
+                    raise Exception(f"Router error: {error_str}")
 
-            self.statusmsg = "Reboot command sent successfully."
-            return True
+            return self._wait_for_reboot_completion()
         except Exception as e:
             self.statusmsg = f"Failed to reboot: {e}"
             _LOGGER.error(self.statusmsg)

@@ -25,7 +25,10 @@ _ALLOWED_KEY = re.compile(
     r"|(wan_)?(conn)?(status|state|mode|rate|errors|packets|bytes|margin"
     r"|attenuation|delay|depth|module_type|retrain|showtime|enabled?"
     r"|error_message|error)"
-    r"|\w+_(status|state|rate|errors|packets|bytes|uptime|connected|traffic))$",
+    r"|\w+_(status|state|rate|errors|packets|bytes|uptime|connected|traffic)"
+    r"|pon_(onu_state|rx_power_dbm|tx_power_dbm|supply_voltage_mv"
+    r"|bias_current_ma|temperature_c|loss_of_signal|registration_status"
+    r"|los_since|los_duration_seconds|last_outage_seconds|last_recovery_at))$",
     re.IGNORECASE,
 )
 

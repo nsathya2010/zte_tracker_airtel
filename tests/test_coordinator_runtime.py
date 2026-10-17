@@ -20,6 +20,7 @@ from custom_components.zte_tracker.const import (
     CONF_SCAN_INTERVAL,
     CONF_SESSION_REUSE,
     DOMAIN,
+    EVENT_LOS_STATE_CHANGED,
 )
 from custom_components.zte_tracker.coordinator import (
     FAST_UPDATE_INTERVAL,
@@ -60,6 +61,7 @@ def _hass(mock_hass):
     mock_hass.async_add_executor_job = AsyncMock(
         side_effect=lambda func, *args: func(*args)
     )
+    mock_hass.bus = SimpleNamespace(async_fire=Mock())
     tasks = []
 
     def _schedule(coro, _name):
@@ -348,6 +350,71 @@ async def test_async_update_data_reuse_path_returns_unavailable_after_retry_fail
     assert result["router_info"]["status"] == "unavailable"
     assert coordinator.available is False
     assert client.logout.call_count >= 1
+
+
+@pytest.mark.asyncio
+async def test_async_update_data_tracks_los_events_and_durations(mock_hass) -> None:
+    """LOS transitions should fire events and keep outage timing metadata."""
+    devices = [
+        {
+            "HostName": "Phone",
+            "IPAddress": "10.0.0.2",
+            "MACAddress": "AA:BB",
+            "Active": True,
+            "NetworkType": "WLAN",
+        }
+    ]
+    client = _client(
+        get_devices_response=Mock(return_value=devices),
+        get_wan_status=Mock(
+            side_effect=[
+                {
+                    "PON_loss_of_signal": False,
+                    "PON_onu_state": "O5",
+                    "PON_registration_status": 5,
+                },
+                {
+                    "PON_loss_of_signal": True,
+                    "PON_onu_state": "O2",
+                    "PON_registration_status": 2,
+                },
+                {
+                    "PON_loss_of_signal": False,
+                    "PON_onu_state": "O5",
+                    "PON_registration_status": 5,
+                },
+            ]
+        ),
+    )
+    coordinator = _make_coordinator(mock_hass, _entry(), client)
+
+    with patch("custom_components.zte_tracker.coordinator.datetime") as fake_datetime:
+        fake_datetime.now.side_effect = [
+            datetime(2026, 1, 1, 10, 0, 0),
+            datetime(2026, 1, 1, 10, 0, 10),
+            datetime(2026, 1, 1, 10, 0, 20),
+            datetime(2026, 1, 1, 10, 0, 25),
+            datetime(2026, 1, 1, 10, 0, 40),
+            datetime(2026, 1, 1, 10, 0, 45),
+        ]
+
+        first = await coordinator._async_update_data()
+        second = await coordinator._async_update_data()
+        third = await coordinator._async_update_data()
+
+    assert "PON_los_since" not in first["router_info"]
+    assert second["router_info"]["PON_los_since"] == "2026-01-01T10:00:20"
+    assert second["router_info"]["PON_los_duration_seconds"] == 5
+    assert third["router_info"]["PON_last_outage_seconds"] == 25
+    assert third["router_info"]["PON_last_recovery_at"] == "2026-01-01T10:00:45"
+
+    fired = mock_hass.bus.async_fire.call_args_list
+    assert len(fired) == 2
+    assert fired[0].args[0] == EVENT_LOS_STATE_CHANGED
+    assert fired[0].args[1]["los"] is True
+    assert fired[1].args[0] == EVENT_LOS_STATE_CHANGED
+    assert fired[1].args[1]["los"] is False
+    assert fired[1].args[1]["outage_duration_seconds"] == 25
 
 
 def test_legacy_get_scanner_and_control_helpers(mock_hass) -> None:

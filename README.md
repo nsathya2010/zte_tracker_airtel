@@ -72,11 +72,29 @@ A modern, feature-rich integration for ZTE routers that provides comprehensive d
     - WAN_error_message
     - WAN_connected
     - **DSL line** (VDSL/ADSL models such as the H2640): `DSL_line_status`, `DSL_upstream_rate_kbps`, `DSL_downstream_rate_kbps`, `DSL_upstream_max_rate_kbps`, `DSL_downstream_max_rate_kbps`, `DSL_upstream_noise_margin`, `DSL_downstream_noise_margin`, `DSL_upstream_attenuation`, `DSL_downstream_attenuation`, `DSL_profile`, `DSL_encapsulation`. Reported instead of the Ethernet WAN attributes, since DSL sync is not Internet reachability.
+    - **GPON optical attributes** on optical-capable profiles: `PON_onu_state`, `PON_rx_power_dbm`, `PON_tx_power_dbm`, `PON_supply_voltage_mv`, `PON_bias_current_ma`, `PON_temperature_c`, `PON_loss_of_signal`, `PON_registration_status`
     - **Router details**: model, firmware version, uptime, MAC address, IP address, Memory usage, CPU usage, etc.
 
 - **Device Count Sensor** (`sensor.zte_router_[ip]_connected_devices`)
   - State: Number of connected devices
   - Attributes: list of devices detected.
+
+- **Optical Diagnostic Sensors** (GPON profiles such as F6600P, F6745Q, F670L)
+  - ONU operational state
+  - Optical receive power (dBm)
+  - Optical transmit power (dBm)
+  - Optical module supply voltage (mV)
+  - Optical transmitter bias current (mA)
+  - Optical module temperature (°C)
+
+### Binary Sensors
+
+- **Optical LOS** (`binary_sensor.zte_router_[ip]_optical_los`)
+  - `on` only when the router exposes a direct loss-of-signal flag
+  - `off` when that direct flag clears
+  - `unavailable` when the router does not expose LOS data or the optical endpoint is unavailable
+  - Attributes: `onu_state`, `los_since`, `los_duration_seconds`, `last_outage_seconds`, `last_recovery_at`
+  - Fires Home Assistant bus event `zte_tracker_los_state_changed` on LOS start and LOS recovery
 
 ### Device Trackers
 
@@ -190,6 +208,7 @@ For ZTE mesh networks (e.g. F6600P Controller + H196A Agent), enable **Mesh topo
 | ZTE F680    |      F680      |    ✅    |
 | ZTE F6745Q  |     F6745Q      |    ✅    |
 | ZTE F6600P  |     F6600P      |    ✅    |
+| ZTE F670L V9.0.10P18N3D  |     F670L      |    🟡    |
 | ZTE F8748   |      F8748      |    ✅    |
 | ZTE H168A V2.1 |     H168A      |    ✅    |
 | ZTE H169A     |      H169A      |    ✅    |
@@ -208,6 +227,8 @@ For ZTE mesh networks (e.g. F6600P Controller + H196A Agent), enable **Mesh topo
 > **Not listed?** Try each value above first, then run [`zte_tracker.export_support_bundle`](#zte_trackerexport_support_bundle) and attach the file to an issue.
 
 > **F8748 note**: Verified on a unit provided by **DIGI Portugal** (firmware `V3.0.10P2N4`, hardware `V3.0.03`). It shares the F6640 web-console endpoints, and is defined as a distinct model because this firmware additionally exposes **WAN traffic counters** in `wan_internetstatus_lua.lua`. When the model is `F8748`, the integration parses those into extra router-status attributes: `WAN_rx_bytes`, `WAN_tx_bytes`, `WAN_rx_packets`, `WAN_tx_packets`, `WAN_rx_errors`, `WAN_tx_errors`. This is gated to `F8748` so other F6640-family routers are unaffected (we could not confirm they populate the same fields). DIGI units in other countries (e.g. Spain, Romania) are likely identical; F8748 units from other providers or bought retail may expose additional pages/data we could not confirm.
+
+> **F670L note**: The `F670L` option reuses the verified V9 GPON optical endpoint profile used by `F6600P`-family firmware and exposes dedicated ONU, optical power, voltage, bias-current, temperature and LOS entities. The reboot request also uses that profile's 4096-bit RSA signing path, but acceptance on `V9.0.10P18N3D` still needs confirmation from a browser capture of the router's own reboot action if the router continues to return HTTP 400.
 
 ## 🚀 Installation
 
@@ -248,6 +269,18 @@ zte_tracker:
   username: admin
   password: !secret zte_password
 ```
+
+## 🧪 Testing
+
+The repository's focused, no-router tests for the optical and reboot paths are:
+
+```bash
+python3 -m unittest tests.zteclient.test_pon_optical_parsing
+python3 -m unittest tests.test_diagnostics
+python3 -m pytest tests/zteclient/test_client_runtime.py tests/test_entity_platforms.py
+```
+
+If an `F670L` reboot still fails with HTTP 400, capture the exact network request sent by the router's own web UI when you click its reboot button. The required evidence is the HTTP method, URL, query string, headers, request body, and the response status/body after login. Without that capture, the integration can only reuse the closest verified V9 GPON reboot profile rather than claim full reboot compatibility.
 ## Add to your dashboard
 
 ### With auto-entities card

@@ -80,6 +80,13 @@ class _FakeCoordinator:
                 "SoftwareVer": "ZTEGF6640P2N10D_V",
                 "CpuUsage1": 7,
                 "MemUsage": 62,
+                "PON_onu_state": "O5",
+                "PON_rx_power_dbm": -25.5284,
+                "PON_tx_power_dbm": 2.6698,
+                "PON_supply_voltage_mv": 3237.0,
+                "PON_bias_current_ma": 13.9,
+                "PON_temperature_c": 49.714,
+                "PON_loss_of_signal": False,
                 "WAN_IPAddress": "94.131.34.223",
                 "WAN_Status": "Connected",
                 "Uptime": "up 3 days",
@@ -169,6 +176,9 @@ class TestDiagnostics(TestCase):
         attributes = self.result["router_attributes"]
         self.assertEqual(attributes["CpuUsage1"], 7)
         self.assertEqual(attributes["MemUsage"], 62)
+        self.assertEqual(attributes["PON_onu_state"], "O5")
+        self.assertEqual(attributes["PON_rx_power_dbm"], -25.5284)
+        self.assertEqual(attributes["PON_loss_of_signal"], False)
         self.assertEqual(attributes["WAN_Status"], "Connected")
         self.assertEqual(attributes["WAN_IPAddress"], "**REDACTED**")
 

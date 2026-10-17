@@ -25,6 +25,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SESSION_REUSE,
     DOMAIN,
+    EVENT_LOS_STATE_CHANGED,
 )
 from .zteclient.zte_client import zteClient
 
@@ -93,6 +94,10 @@ class ZteDataCoordinator(DataUpdateCoordinator):
         self._device_cache: dict[str, dict[str, Any]] = {}
         self._last_successful_update: datetime | None = None
         self._last_login_at: datetime | None = None
+        self._los_last_state: bool | None = None
+        self._los_active_since: datetime | None = None
+        self._los_last_recovery_at: datetime | None = None
+        self._los_last_outage_seconds: int | None = None
         self._client_lock = asyncio.Lock()
         self._reuse_session = bool(
             entry.options.get(
@@ -120,9 +125,12 @@ class ZteDataCoordinator(DataUpdateCoordinator):
         0 or None restores the default adaptive tiers; the ADAPTIVE_* presets
         select the faster or slower ones.
         """
-        tiers = {ADAPTIVE_FAST: FAST_TIERS, ADAPTIVE_RELAXED: RELAXED_TIERS}.get(
-            seconds, ADAPTIVE_TIERS
-        )
+        if seconds == ADAPTIVE_FAST:
+            tiers = FAST_TIERS
+        elif seconds == ADAPTIVE_RELAXED:
+            tiers = RELAXED_TIERS
+        else:
+            tiers = ADAPTIVE_TIERS
         fixed = timedelta(seconds=seconds) if seconds and seconds > 0 else None
         changed = (
             getattr(self, "_tiers", None) is not tiers
@@ -280,6 +288,51 @@ class ZteDataCoordinator(DataUpdateCoordinator):
             # Reboot invalidates any session we held.
             self._last_login_at = None
             return result
+
+    def _apply_los_state(self, router_info: dict[str, Any], now: datetime) -> None:
+        """Track LOS transitions and attach timing metadata to router info."""
+        los_state = router_info.get("PON_loss_of_signal")
+        if not isinstance(los_state, bool):
+            return
+
+        event_data = {
+            "entry_id": self.entry.entry_id,
+            "host": self.client.host,
+            "model": self.client.model,
+            "los": los_state,
+            "onu_state": router_info.get("PON_onu_state"),
+            "registration_status": router_info.get("PON_registration_status"),
+            "changed_at": now.isoformat(),
+        }
+
+        if los_state:
+            if self._los_active_since is None:
+                self._los_active_since = now
+            router_info["PON_los_since"] = self._los_active_since.isoformat()
+            router_info["PON_los_duration_seconds"] = int(
+                (now - self._los_active_since).total_seconds()
+            )
+            if self._los_last_state is False:
+                event_data["outage_duration_seconds"] = 0
+                self.hass.bus.async_fire(EVENT_LOS_STATE_CHANGED, event_data)
+        else:
+            if self._los_active_since is not None:
+                outage_seconds = int((now - self._los_active_since).total_seconds())
+                self._los_last_outage_seconds = outage_seconds
+                self._los_last_recovery_at = now
+                if self._los_last_state is True:
+                    event_data["outage_duration_seconds"] = outage_seconds
+                    self.hass.bus.async_fire(EVENT_LOS_STATE_CHANGED, event_data)
+                self._los_active_since = None
+
+            if self._los_last_outage_seconds is not None:
+                router_info["PON_last_outage_seconds"] = self._los_last_outage_seconds
+            if self._los_last_recovery_at is not None:
+                router_info["PON_last_recovery_at"] = (
+                    self._los_last_recovery_at.isoformat()
+                )
+
+        self._los_last_state = los_state
 
     def _enrich_topology(
         self,
@@ -585,6 +638,9 @@ class ZteDataCoordinator(DataUpdateCoordinator):
                 "router_info": {
                     "host": self.client.host,
                     "model": self.client.model,
+                    "router_connected": False,
+                    "internet_connected": None,
+                    "fiber_connected": None,
                     "status": "unavailable",
                 },
             }
@@ -603,6 +659,7 @@ class ZteDataCoordinator(DataUpdateCoordinator):
         router_info = {
             "host": self.client.host,
             "model": self.client.model,
+            "router_connected": True,
             "status": "connected",
             "last_update": self._last_successful_update.isoformat(),
             "active_devices": active_count,
@@ -612,6 +669,19 @@ class ZteDataCoordinator(DataUpdateCoordinator):
             router_info.update(wanstatus)
         if routerdetails:
             router_info.update(routerdetails)
+        self._apply_los_state(router_info, self._last_successful_update)
+        if isinstance(router_info.get("WAN_connected"), bool):
+            router_info["internet_connected"] = router_info["WAN_connected"]
+        else:
+            router_info["internet_connected"] = None
+        if router_info.get("PON_loss_of_signal") is True:
+            router_info["WAN_connected"] = False
+            router_info["internet_connected"] = False
+            router_info["fiber_connected"] = False
+        elif router_info.get("PON_loss_of_signal") is False:
+            router_info["fiber_connected"] = True
+        else:
+            router_info["fiber_connected"] = None
         return {
             "devices": processed_devices,
             "router_info": router_info,

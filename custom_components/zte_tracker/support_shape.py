@@ -455,7 +455,14 @@ _SENSITIVE = (
 
 # Names that end in Name but describe the hardware, not a person.
 _NAME_EXEMPT = frozenset(
-    {"modelname", "manufacturername", "productname", "classname", "vendorname"}
+    {
+        "modelname",
+        "manufacturername",
+        "productname",
+        "classname",
+        "vendorname",
+        "pon_onu_state",
+    }
 )
 
 # Short markers are matched as whole words, not as substrings.

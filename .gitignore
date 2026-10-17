@@ -3,3 +3,4 @@ venv/
 .venv/
 config/
 .coverage
+.env.f670l.local

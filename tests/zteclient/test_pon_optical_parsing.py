@@ -56,8 +56,22 @@ class TestPonOpticalParsing(TestCase):
         self.assertEqual(attrs["PON_rx_power_dbm"], -18.34)
         self.assertEqual(attrs["PON_tx_power_dbm"], 2.15)
         self.assertEqual(attrs["PON_temperature_c"], 45.62)
+        self.assertEqual(attrs["PON_supply_voltage_mv"], 3300.0)
+        self.assertEqual(attrs["PON_bias_current_ma"], 18.0)
         self.assertFalse(attrs["PON_loss_of_signal"])
         self.assertEqual(attrs["PON_registration_status"], 5)
+        self.assertEqual(attrs["PON_onu_state"], "O5")
+
+    def test_missing_or_bad_optical_values_are_skipped(self):
+        sample = (
+            "<ajax_response_xml_root><IF_ERRORSTR>SUCC</IF_ERRORSTR>"
+            "<OBJ_GPONREGSTATUS_ID><Instance><ParaName>RegStatus</ParaName><ParaValue>bad</ParaValue></Instance></OBJ_GPONREGSTATUS_ID>"
+            "<OBJ_PON_OPTICALPARA_ID><Instance><ParaName>Temp</ParaName><ParaValue>oops</ParaValue>"
+            "<ParaName>Volt</ParaName><ParaValue></ParaValue></Instance></OBJ_PON_OPTICALPARA_ID></ajax_response_xml_root>"
+        )
+        client = _make_client(sample)
+        attrs = client.get_pon_optical_info()
+        self.assertEqual(attrs, {})
 
     def test_view_request_is_made_before_data_request(self):
         client = _make_client(SAMPLE)

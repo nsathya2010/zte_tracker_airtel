@@ -55,6 +55,7 @@ def test_init_resolves_scheme_models_and_profiles() -> None:
     http_client = _make_client("F6640", scheme="http", verify_ssl=True)
 
     assert "F6640" in zteClient.get_models()
+    assert "F670L" in zteClient.get_models()
     assert https_client.base_url == "https://192.168.1.1"
     assert http_client.base_url == "http://192.168.1.1"
     assert http_client.verify_ssl is False
@@ -218,6 +219,32 @@ def test_logout_handles_success_and_failure() -> None:
     old_session.close.assert_called_once()
     assert client.session is None
     assert client.login_data is None
+
+
+def test_reboot_uses_profile_specific_public_keys() -> None:
+    """V9 GPON aliases should reuse the 4096-bit reboot key profile."""
+    client = _make_client("F670L")
+    client.login = Mock(return_value=True)
+    client.get_session_token = Mock(return_value="TESTTOKEN")
+    client.logout = Mock()
+    client.session = MagicMock()
+    client.session.get.return_value = _response()
+    client.session.post.return_value = _response(
+        text="<ajax_response_xml_root><IF_ERRORSTR>SUCC</IF_ERRORSTR></ajax_response_xml_root>"
+    )
+
+    fake_public_key = MagicMock()
+    fake_public_key.encrypt.return_value = b"ciphertext"
+
+    with patch.object(
+        zte_client_module.serialization,
+        "load_pem_public_key",
+        return_value=fake_public_key,
+    ) as load_key:
+        assert client.reboot() is True
+
+    pem = load_key.call_args.args[0].decode("utf-8")
+    assert "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8A" in pem
 
     old_session = MagicMock()
     client.session = old_session
