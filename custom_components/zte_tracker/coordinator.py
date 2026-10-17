@@ -9,6 +9,7 @@ from typing import Any
 
 from homeassistant.components.logbook.const import (
     LOGBOOK_ENTRY_DOMAIN,
+    LOGBOOK_ENTRY_ENTITY_ID,
     LOGBOOK_ENTRY_MESSAGE,
     LOGBOOK_ENTRY_NAME,
 )
@@ -20,7 +21,8 @@ from homeassistant.const import (
     CONF_USERNAME,
     EVENT_LOGBOOK_ENTRY,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Context, HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
@@ -320,18 +322,30 @@ class ZteDataCoordinator(DataUpdateCoordinator):
         }
         self.async_set_updated_data({"devices": devices, "router_info": router_info})
 
-    def _async_log_activity(self, message: str) -> None:
-        """Write a router lifecycle message to Home Assistant Activity."""
-        self.hass.bus.async_fire(
-            EVENT_LOGBOOK_ENTRY,
-            {
-                LOGBOOK_ENTRY_NAME: f"ZTE Router {self.client.host}",
-                LOGBOOK_ENTRY_MESSAGE: message,
-                LOGBOOK_ENTRY_DOMAIN: DOMAIN,
-            },
+    def _router_status_entity_id(self) -> str | None:
+        """Resolve the router status sensor entity id for logbook entries."""
+        return er.async_get(self.hass).async_get_entity_id(
+            "sensor", DOMAIN, f"{self.entry.entry_id}_status"
         )
 
-    async def async_reboot_router(self) -> bool:
+    def _async_log_activity(
+        self, message: str, context: Context | None = None
+    ) -> None:
+        """Write a router lifecycle message to Home Assistant Activity."""
+        event_data = {
+            LOGBOOK_ENTRY_NAME: f"ZTE Router {self.client.host}",
+            LOGBOOK_ENTRY_MESSAGE: message,
+            LOGBOOK_ENTRY_DOMAIN: DOMAIN,
+        }
+        if entity_id := self._router_status_entity_id():
+            event_data[LOGBOOK_ENTRY_ENTITY_ID] = entity_id
+        self.hass.bus.async_fire(
+            EVENT_LOGBOOK_ENTRY,
+            event_data,
+            context=context,
+        )
+
+    async def async_reboot_router(self, context: Context | None = None) -> bool:
         """Reboot the router."""
 
         def _reboot():
@@ -344,8 +358,8 @@ class ZteDataCoordinator(DataUpdateCoordinator):
         self._rebooting = True
         self._available = False
         self._publish_runtime_state(status="rebooting", router_connected=False)
-        self._async_log_activity("Reboot requested.")
-        self._async_log_activity("Trying to reconnect to the router.")
+        self._async_log_activity("Reboot requested.", context)
+        self._async_log_activity("Trying to reconnect to the router.", context)
 
         async with self._client_lock:
             result = await self.hass.async_add_executor_job(_reboot)
@@ -356,7 +370,9 @@ class ZteDataCoordinator(DataUpdateCoordinator):
             await self.async_request_refresh()
         else:
             self._publish_runtime_state(status="unavailable", router_connected=False)
-            self._async_log_activity("Reboot failed or the router did not come back online.")
+            self._async_log_activity(
+                "Reboot failed or the router did not come back online.", context
+            )
 
         return result
 

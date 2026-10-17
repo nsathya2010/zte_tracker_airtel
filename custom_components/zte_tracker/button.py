@@ -55,7 +55,7 @@ class ZteRebootButton(CoordinatorEntity, ButtonEntity):
         host = getattr(self.coordinator.client, "host", "unknown")
         _LOGGER.info("Reboot requested via button for host: %s", host)
         try:
-            success = await self.coordinator.async_reboot_router()
+            success = await self.coordinator.async_reboot_router(self._context)
             if not success:
                 raise HomeAssistantError(
                     f"Router reboot failed for host: {host}"

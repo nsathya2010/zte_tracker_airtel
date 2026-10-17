@@ -299,10 +299,10 @@ async def async_reboot_service(call: ServiceCall):
         if host:
             if getattr(client, "host", None) == host:
                 # Use coordinator's async method to avoid blocking the event loop
-                if await coordinator.async_reboot_router():
+                if await coordinator.async_reboot_router(call.context):
                     rebooted.append(host)
         else:
-            if await coordinator.async_reboot_router():
+            if await coordinator.async_reboot_router(call.context):
                 rebooted.append(client.host)
 
     if rebooted:
