@@ -10,7 +10,7 @@ from typing import Any
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_MODEL, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.data_entry_flow import FlowResult, section
+from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
@@ -266,8 +266,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     ) -> FlowResult:
         """Manage the options flow."""
         errors: dict[str, str] = {}
-        if user_input is not None:
-            user_input = _flatten_sections(user_input)
 
         # Current values, used both as form defaults and as the comparison
         # baseline to decide whether router credentials/host changed and thus
@@ -444,61 +442,32 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
         data_schema = vol.Schema(
             {
-                vol.Required("connection"): section(
-                    vol.Schema(
-                        {
-                            vol.Required(CONF_HOST, default=current_host): cv.string,
-                            vol.Required(
-                                CONF_USERNAME, default=current_username
-                            ): cv.string,
-                            vol.Required(
-                                CONF_PASSWORD, default=current_password
-                            ): cv.string,
-                        }
-                    ),
-                    {"collapsed": False},
+                vol.Required(CONF_HOST, default=current_host): cv.string,
+                vol.Required(CONF_USERNAME, default=current_username): cv.string,
+                vol.Required(CONF_PASSWORD, default=current_password): cv.string,
+                vol.Required(CONF_QUERY_WAN_STATUS, default=current_wan): cv.boolean,
+                vol.Required(
+                    CONF_QUERY_ROUTER_DETAILS, default=current_router
+                ): cv.boolean,
+                vol.Required(
+                    CONF_SESSION_REUSE, default=current_session_reuse
+                ): cv.boolean,
+                vol.Required(
+                    CONF_MESH_TOPOLOGY, default=current_mesh_topology
+                ): cv.boolean,
+                vol.Required(
+                    CONF_SCAN_INTERVAL,
+                    default=_scan_interval_key(current_scan_interval),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=_scan_interval_options(current_scan_interval),
+                        translation_key=CONF_SCAN_INTERVAL,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
                 ),
-                vol.Required("data_sources"): section(
-                    vol.Schema(
-                        {
-                            vol.Required(
-                                CONF_QUERY_WAN_STATUS, default=current_wan
-                            ): cv.boolean,
-                            vol.Required(
-                                CONF_QUERY_ROUTER_DETAILS, default=current_router
-                            ): cv.boolean,
-                            vol.Required(
-                                CONF_SESSION_REUSE, default=current_session_reuse
-                            ): cv.boolean,
-                            vol.Required(
-                                CONF_MESH_TOPOLOGY, default=current_mesh_topology
-                            ): cv.boolean,
-                        }
-                    ),
-                    {"collapsed": True},
-                ),
-                vol.Required("refresh"): section(
-                    vol.Schema(
-                        {
-                            vol.Required(
-                                CONF_SCAN_INTERVAL,
-                                default=_scan_interval_key(current_scan_interval),
-                            ): selector.SelectSelector(
-                                selector.SelectSelectorConfig(
-                                    options=_scan_interval_options(
-                                        current_scan_interval
-                                    ),
-                                    translation_key=CONF_SCAN_INTERVAL,
-                                    mode=selector.SelectSelectorMode.DROPDOWN,
-                                )
-                            ),
-                            vol.Required(
-                                CONF_JOIN_REFRESH, default=current_join_refresh
-                            ): cv.boolean,
-                        }
-                    ),
-                    {"collapsed": False},
-                ),
+                vol.Required(
+                    CONF_JOIN_REFRESH, default=current_join_refresh
+                ): cv.boolean,
             }
         )
 
@@ -535,15 +504,3 @@ def _parse_scan_interval(value: Any, fallback: int) -> int:
         return int(fallback)
 
 
-_SECTIONS = ("connection", "data_sources", "refresh")
-
-
-def _flatten_sections(user_input: dict[str, Any]) -> dict[str, Any]:
-    """Return the submitted options with the form sections merged away."""
-    flat: dict[str, Any] = {}
-    for key, value in user_input.items():
-        if key in _SECTIONS and isinstance(value, dict):
-            flat.update(value)
-        else:
-            flat[key] = value
-    return flat
