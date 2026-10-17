@@ -1,5 +1,5 @@
 {
-  "domain": "zte_tracker_airtel",
+  "domain": "zte_tracker",
   "name": "ZTE router Airtel",
   "codeowners": ["@juacas", "@lebdim"],
   "config_flow": true,
