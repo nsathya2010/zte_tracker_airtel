@@ -558,6 +558,13 @@ class ZteDataCoordinator(DataUpdateCoordinator):
 
                 devices = self.client.get_devices_response()
                 wanstatus = self.client.get_wan_status()
+                if self.client.paths.get("tag_pon_optical_data") and not any(
+                    key.startswith("PON_") for key in (wanstatus or {})
+                ):
+                    wanstatus = {
+                        **(wanstatus or {}),
+                        **self.client.get_pon_optical_info(),
+                    }
                 routerdetails = self.client.get_router_details()
 
                 # Mesh topology enrichment (before logout!)
@@ -654,6 +661,13 @@ class ZteDataCoordinator(DataUpdateCoordinator):
                         return None, None, None, False
 
                     wanstatus = self.client.get_wan_status()
+                    if self.client.paths.get("tag_pon_optical_data") and not any(
+                        key.startswith("PON_") for key in (wanstatus or {})
+                    ):
+                        wanstatus = {
+                            **(wanstatus or {}),
+                            **self.client.get_pon_optical_info(),
+                        }
                     routerdetails = self.client.get_router_details()
 
                     # Mesh topology enrichment (session still alive)

@@ -85,6 +85,7 @@ def _client(**kwargs):
         reboot=Mock(return_value=True),
         get_devices_response=Mock(return_value=[]),
         get_wan_status=Mock(return_value={}),
+        get_pon_optical_info=Mock(return_value={}),
         get_router_details=Mock(return_value={}),
         _try_topology=Mock(return_value=None),
         login_data=None,
@@ -307,6 +308,35 @@ async def test_async_update_data_legacy_path_enriches_topology(mock_hass) -> Non
     assert result["router_info"]["WAN_connected"] is True
     assert result["router_info"]["ModelName"] == "F6600P"
     assert client.logout.called
+
+
+@pytest.mark.asyncio
+async def test_async_update_data_fetches_optics_even_when_wan_query_is_empty(
+    mock_hass,
+) -> None:
+    """Optical sensors should not depend on WAN status returning PON fields."""
+    client = _client(
+        get_devices_response=Mock(return_value=[]),
+        get_wan_status=Mock(return_value={}),
+        get_pon_optical_info=Mock(
+            return_value={
+                "PON_onu_state": "O5",
+                "PON_rx_power_dbm": -25.376,
+                "PON_tx_power_dbm": 2.7482,
+                "PON_supply_voltage_mv": 3244.0,
+                "PON_bias_current_ma": 13.75,
+                "PON_temperature_c": 49.714,
+            }
+        ),
+        get_router_details=Mock(return_value={}),
+    )
+    coordinator = _make_coordinator(mock_hass, _entry(), client)
+
+    result = await coordinator._async_update_data()
+
+    assert result["router_info"]["PON_onu_state"] == "O5"
+    assert result["router_info"]["PON_rx_power_dbm"] == -25.376
+    assert result["router_info"]["PON_tx_power_dbm"] == 2.7482
 
 
 @pytest.mark.asyncio
