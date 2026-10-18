@@ -10,7 +10,6 @@ from homeassistant.const import UnitOfElectricCurrent, UnitOfElectricPotential, 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as ha_dt
@@ -81,6 +80,15 @@ OPTICAL_SENSORS: tuple[ZteOpticalSensorDescription, ...] = (
     ),
 )
 
+OPTICAL_ATTRIBUTE_ALIASES: dict[str, str] = {
+    "PON_onu_state": "optical_onu_state",
+    "PON_rx_power_dbm": "optical_module_input_power_dbm",
+    "PON_tx_power_dbm": "optical_module_output_power_dbm",
+    "PON_supply_voltage_mv": "optical_module_supply_voltage_mv",
+    "PON_bias_current_ma": "optical_transmitter_bias_current_ma",
+    "PON_temperature_c": "optical_module_temperature_c",
+}
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -150,8 +158,14 @@ class ZteRouterSensor(ZteBaseSensor):
         router_info = data.get("router_info", {})
         # Return a copy to avoid mutating shared coordinator.data
         interval = self.coordinator.update_interval
+        optical_attributes = {
+            alias: router_info.get(source_key)
+            for source_key, alias in OPTICAL_ATTRIBUTE_ALIASES.items()
+            if source_key in router_info
+        }
         return {
             **router_info,
+            **optical_attributes,
             "last_update": ha_dt.now().isoformat(),
             "poll_interval": int(interval.total_seconds()) if interval else None,
         }
@@ -192,8 +206,6 @@ class ZteDeviceCountSensor(ZteBaseSensor):
 
 class ZteOpticalMetricSensor(ZteBaseSensor):
     """Diagnostic sensor backed by router optical data."""
-
-    entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(
         self,
