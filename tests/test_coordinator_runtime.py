@@ -357,6 +357,24 @@ async def test_async_update_data_marks_fiber_connected_from_o5_when_los_missing(
 
 
 @pytest.mark.asyncio
+async def test_async_update_data_exposes_f670l_internet_state_from_wan_status(
+    mock_hass,
+) -> None:
+    """F670L should expose Internet when WAN status reports a boolean state."""
+    client = _client(
+        model="F670L",
+        get_devices_response=Mock(return_value=[]),
+        get_wan_status=Mock(return_value={"WAN_connected": True}),
+        get_router_details=Mock(return_value={}),
+    )
+    coordinator = _make_coordinator(mock_hass, _entry(), client)
+
+    result = await coordinator._async_update_data()
+
+    assert result["router_info"]["internet_connected"] is True
+
+
+@pytest.mark.asyncio
 async def test_async_update_data_reuse_path_reauthenticates_stale_session(
     mock_hass,
 ) -> None:

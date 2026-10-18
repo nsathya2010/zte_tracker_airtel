@@ -98,7 +98,7 @@ def _registry_entity(
 
 @pytest.mark.asyncio
 async def test_button_setup_and_press_paths(mock_hass) -> None:
-    """The reboot button should expose success and failure behavior."""
+    """The router action buttons should expose refresh and reboot behavior."""
     entry = _entry()
     coordinator = _coordinator()
     mock_hass.data = {DOMAIN: {entry.entry_id: coordinator}}
@@ -106,19 +106,29 @@ async def test_button_setup_and_press_paths(mock_hass) -> None:
 
     await button.async_setup_entry(mock_hass, entry, added.extend)
 
-    assert len(added) == 1
-    entity = added[0]
-    assert entity.name == "ZTE Router 192.168.1.1 Reboot"
-    assert entity.unique_id == "entry-1_reboot"
-    assert entity.device_info["model"] == "F6640"
-    assert entity.available is True
+    assert len(added) == 2
+    refresh = next(entity for entity in added if entity.unique_id == "entry-1_refresh")
+    reboot = next(entity for entity in added if entity.unique_id == "entry-1_reboot")
 
-    await entity.async_press()
+    assert refresh.name == "Refresh"
+    assert refresh.available is True
+    assert reboot.name == "Reboot"
+    assert reboot.device_info["model"] == "F6640"
+    assert reboot.available is True
+
+    await refresh.async_press()
+    coordinator.async_request_refresh.assert_awaited_once()
+
+    await reboot.async_press()
     coordinator.async_reboot_router.assert_awaited_once()
 
     coordinator.async_reboot_router = AsyncMock(return_value=False)
     with pytest.raises(HomeAssistantError, match="Router reboot failed"):
         await button.ZteRebootButton(coordinator, entry).async_press()
+
+    coordinator.async_request_refresh = AsyncMock(side_effect=RuntimeError("boom"))
+    with pytest.raises(HomeAssistantError, match="Exception while refreshing"):
+        await button.ZteRefreshButton(coordinator, entry).async_press()
 
     coordinator.async_reboot_router = AsyncMock(side_effect=RuntimeError("boom"))
     with pytest.raises(HomeAssistantError, match="Exception while rebooting"):
@@ -126,15 +136,19 @@ async def test_button_setup_and_press_paths(mock_hass) -> None:
 
 
 def test_button_unavailable_while_router_is_rebooting_or_offline() -> None:
-    """The reboot button should stay disabled until the router is reachable."""
+    """Router buttons should reflect router reachability and pause state."""
     entry = _entry()
     coordinator = _coordinator()
 
-    entity = button.ZteRebootButton(coordinator, entry)
-    assert entity.available is True
+    reboot = button.ZteRebootButton(coordinator, entry)
+    refresh = button.ZteRefreshButton(coordinator, entry)
+    assert reboot.available is True
+    assert refresh.available is True
 
     coordinator.data["router_info"]["router_connected"] = False
-    assert entity.available is False
+    coordinator.paused = True
+    assert reboot.available is False
+    assert refresh.available is False
 
 
 @pytest.mark.asyncio
@@ -169,6 +183,7 @@ async def test_sensor_setup_and_properties(mock_hass) -> None:
     )
 
     assert router_sensor.native_value == "Connected"
+    assert router_sensor.name is None
     assert router_sensor.icon == ICON
     assert router_sensor.device_info["configuration_url"] == "https://192.168.1.1"
     with patch(
@@ -181,6 +196,7 @@ async def test_sensor_setup_and_properties(mock_hass) -> None:
     assert attrs["poll_interval"] == 60
 
     assert count_sensor.native_value == 1
+    assert count_sensor.name == "Devices"
     assert count_sensor.extra_state_attributes == {
         "devices": ["AA:BB(Phone-10.0.0.2)", "CC:DD(Laptop-10.0.0.3)"],
         "num_devices": 1,
@@ -216,9 +232,16 @@ async def test_gpon_optical_entities_expose_router_metrics(mock_hass) -> None:
     }
     assert len(optical) == 6
     assert optical["entry-1_optical_onu_state"].native_value == "O5"
+    assert optical["entry-1_optical_onu_state"].name == "ONU State"
     assert optical["entry-1_optical_module_input_power_dbm"].native_value == -25.5284
     assert optical["entry-1_optical_module_supply_voltage_mv"].native_value == 3237.0
     assert optical["entry-1_optical_module_temperature_c"].native_value == 49.714
+    assert (
+        optical[
+            "entry-1_optical_module_input_power_dbm"
+        ].entity_description.suggested_unit_of_measurement
+        is None
+    )
 
     added_binary: list = []
     await binary_sensor.async_setup_entry(mock_hass, entry, added_binary.extend)
@@ -291,6 +314,7 @@ async def test_switches_setup_and_toggle_behaviors(mock_hass) -> None:
     )
 
     assert pause_switch.is_on is False
+    assert pause_switch.name == "Pause Tracking"
     coordinator.paused = True
     assert pause_switch.is_on is True
     await pause_switch.async_turn_on()
@@ -303,6 +327,7 @@ async def test_switches_setup_and_toggle_behaviors(mock_hass) -> None:
     register_switch.async_write_ha_state = Mock()
     mock_hass.config_entries.async_update_entry = Mock()
     assert register_switch.is_on is True
+    assert register_switch.name == "Register New Devices"
 
     await register_switch.async_turn_off()
     assert coordinator.disable_register_new_devices.called

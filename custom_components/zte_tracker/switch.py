@@ -34,12 +34,13 @@ class ZtePauseSwitch(CoordinatorEntity, SwitchEntity):
     def __init__(self, coordinator: ZteDataCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        self._attr_name = "ZTE Tracker Pause"
+        self._attr_has_entity_name = True
+        self._attr_name = "Pause Tracking"
         self._attr_unique_id = f"{entry.entry_id}_pause_switch"
         self._attr_icon = "mdi:pause-circle"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name=f"ZTE Router {coordinator.client.host}",
+            name=entry.title or f"ZTE Router {coordinator.client.host}",
             manufacturer="ZTE",
             model=coordinator.client.model,
         )
@@ -71,13 +72,14 @@ class ZteRegisterNewDevicesSwitch(CoordinatorEntity, SwitchEntity):
     def __init__(self, coordinator: ZteDataCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        self._attr_name = "ZTE Register New Devices"
+        self._attr_has_entity_name = True
+        self._attr_name = "Register New Devices"
         self._attr_unique_id = f"{entry.entry_id}_register_new_devices"
         self._attr_icon = "mdi:lan-connect"
         self._default_register = True
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name=f"ZTE Router {coordinator.client.host}",
+            name=entry.title or f"ZTE Router {coordinator.client.host}",
             manufacturer="ZTE",
             model=coordinator.client.model,
         )

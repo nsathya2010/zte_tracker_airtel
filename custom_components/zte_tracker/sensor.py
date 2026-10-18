@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
 from homeassistant.const import UnitOfElectricCurrent, UnitOfElectricPotential, UnitOfTemperature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -18,8 +23,8 @@ from .const import DOMAIN, ICON
 from .coordinator import ZteDataCoordinator
 
 
-@dataclass(frozen=True)
-class ZteOpticalSensorDescription:
+@dataclass(frozen=True, kw_only=True)
+class ZteOpticalSensorDescription(SensorEntityDescription):
     key: str
     name: str
     unique_id_suffix: str
@@ -118,9 +123,10 @@ class ZteBaseSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._entry = entry
         router_info = (coordinator.data or {}).get("router_info", {}) or {}
+        self._attr_has_entity_name = True
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name=f"ZTE Router {coordinator.client.host}",
+            name=entry.title or f"ZTE Router {coordinator.client.host}",
             manufacturer=router_info.get("ManuFacturer", "ZTE"),
             model=router_info.get("ModelName") or coordinator.client.model,
             sw_version=router_info.get("SoftwareVer"),
@@ -138,7 +144,7 @@ class ZteRouterSensor(ZteBaseSensor):
     def __init__(self, coordinator: ZteDataCoordinator, entry: ConfigEntry) -> None:
         """Initialize the router sensor."""
         super().__init__(coordinator, entry)
-        self._attr_name = f"ZTE Router {coordinator.client.host}"
+        self._attr_name = None
         self._attr_unique_id = f"{entry.entry_id}_status"
         self._attr_icon = ICON
 
@@ -176,7 +182,7 @@ class ZteDeviceCountSensor(ZteBaseSensor):
     def __init__(self, coordinator: ZteDataCoordinator, entry: ConfigEntry) -> None:
         """Initialize the device count sensor."""
         super().__init__(coordinator, entry)
-        self._attr_name = f"ZTE Router {coordinator.client.host} Devices"
+        self._attr_name = "Devices"
         self._attr_unique_id = f"{entry.entry_id}_device_count"
         self._attr_icon = "mdi:devices"
         self._attr_native_unit_of_measurement = "devices"
@@ -214,9 +220,7 @@ class ZteOpticalMetricSensor(ZteBaseSensor):
     ) -> None:
         super().__init__(coordinator, entry)
         self.entity_description = description
-        self._attr_name = (
-            f"ZTE Router {coordinator.client.host} {description.name}"
-        )
+        self._attr_name = description.name
         self._attr_unique_id = f"{entry.entry_id}_{description.unique_id_suffix}"
         self._attr_suggested_object_id = description.unique_id_suffix
         self._attr_icon = description.icon

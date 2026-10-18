@@ -42,9 +42,10 @@ class ZteBaseBinarySensor(CoordinatorEntity, BinarySensorEntity):
     def __init__(self, coordinator: ZteDataCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         router_info = (coordinator.data or {}).get("router_info", {}) or {}
+        self._attr_has_entity_name = True
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name=f"ZTE Router {coordinator.client.host}",
+            name=entry.title or f"ZTE Router {coordinator.client.host}",
             manufacturer=router_info.get("ManuFacturer", "ZTE"),
             model=router_info.get("ModelName") or coordinator.client.model,
             sw_version=router_info.get("SoftwareVer"),
@@ -58,7 +59,7 @@ class ZteRouterConnectedBinarySensor(ZteBaseBinarySensor):
 
     def __init__(self, coordinator: ZteDataCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
-        self._attr_name = f"ZTE Router {coordinator.client.host} Router"
+        self._attr_name = "Router"
         self._attr_unique_id = f"{entry.entry_id}_router_connected"
         self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
 
@@ -75,7 +76,7 @@ class ZteInternetConnectedBinarySensor(ZteBaseBinarySensor):
 
     def __init__(self, coordinator: ZteDataCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
-        self._attr_name = f"ZTE Router {coordinator.client.host} Internet"
+        self._attr_name = "Internet"
         self._attr_unique_id = f"{entry.entry_id}_internet_connected"
         self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
 
@@ -99,7 +100,7 @@ class ZteFiberConnectedBinarySensor(ZteBaseBinarySensor):
 
     def __init__(self, coordinator: ZteDataCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
-        self._attr_name = f"ZTE Router {coordinator.client.host} Fiber"
+        self._attr_name = "Fiber"
         self._attr_unique_id = f"{entry.entry_id}_fiber_connected"
         self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
 
@@ -125,7 +126,7 @@ class ZteLosBinarySensor(ZteBaseBinarySensor):
 
     def __init__(self, coordinator: ZteDataCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
-        self._attr_name = f"ZTE Router {coordinator.client.host} Optical LOS"
+        self._attr_name = "Optical LOS"
         self._attr_unique_id = f"{entry.entry_id}_pon_los"
         self._attr_icon = "mdi:alarm-light-outline"
         self._attr_device_class = BinarySensorDeviceClass.PROBLEM
