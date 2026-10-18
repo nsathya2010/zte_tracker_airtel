@@ -10,7 +10,7 @@ import hashlib
 import json
 import logging
 import time
-from typing import Any
+from typing import Any, cast
 import warnings
 import xml.etree.ElementTree as ET
 
@@ -61,8 +61,8 @@ _REBOOT_PUBLIC_KEYS = {
     ),
 }
 
-_MODELS = {
-    "F670L": {
+_MODELS: dict[str, dict[str, Any]] = {
+    "F6640": {
         "wlan_script": "wlan_client_stat_lua.lua",
         "wlan_id_element": "OBJ_WLAN_AD_ID",
         "lan_script": "accessdev_landevs_lua.lua",
@@ -73,6 +73,90 @@ _MODELS = {
         "tag_wan_status_data": "wan_internetstatus_lua.lua&TypeUplink=2&pageType=1",
         "topo_data_tag": "topo_lua.lua",
         "default_scheme": "https",
+    },
+    "H288A": {
+        "wlan_script": "accessdev_ssiddev_lua.lua",
+        "wlan_id_element": "OBJ_ACCESSDEV_ID",
+        "lan_script": "accessdev_landevs_lua.lua",
+        "lan_id_element": "OBJ_ACCESSDEV_ID",
+        "type_first_request": "menuView",
+        "type_main_request": "menuData",
+        "tag_wan_status_view": "ethWanStatus&Menu3Location=0",
+        "tag_wan_status_data": "wan_internetstatus_lua.lua&TypeUplink=2&pageType=1",
+        "default_scheme": "https",
+    },
+    "H388X": {
+        "wlan_script": "accessdev_ssiddev_lua.lua",
+        "wlan_id_element": "OBJ_ACCESSDEV_ID",
+        "lan_script": "accessdev_landevs_lua.lua",
+        "lan_id_element": "OBJ_ACCESSDEV_ID",
+        "type_first_request": "menuView",
+        "type_main_request": "menuData",
+        "tag_wan_status_view": "ethWanStatus&Menu3Location=0",
+        "tag_wan_status_data": "wan_internet_lua.lua&TypeUplink=2&pageType=1",
+        "default_scheme": "https",
+    },
+    "E2631": {
+        "wlan_script": "vue_client_data",
+        "wlan_id_element": "OBJ_CLIENTS_ID",
+        "lan_script": "localnet_lan_info_lua",
+        "lan_id_element": "OBJ_LAN_INFO_ID",
+        "type_first_request": "vueData",
+        "type_main_request": "vueData",
+        "tag_wan_status_view": "vue_home_device_data_no_update_sess",
+        "tag_wan_status_data": "vue_mainwan_data",
+        "default_scheme": "https",
+    },
+}
+
+_MODELS["H169A"] = _MODELS["H288A"]
+_MODELS["H168A"] = cast(
+    dict[str, Any],
+    {
+        **_MODELS["H288A"],
+        "wlan_id_element": "OBJ_LOCALNETWORK_STATUS_ACCESSDEV_ID",
+        "lan_id_element": "OBJ_LOCALNETWORK_STATUS_ACCESSDEV_ID",
+    },
+)
+_MODELS["F6645P"] = _MODELS["F6640"]
+_MODELS["H3600P"] = _MODELS["H288A"]
+_MODELS["H6645P"] = _MODELS["H288A"]
+_MODELS["H3640"] = _MODELS["H288A"]
+_MODELS["H6745"] = _MODELS["H288A"]
+_MODELS["SR7410"] = _MODELS["E2631"]
+_MODELS["SR7110"] = _MODELS["E2631"]
+_MODELS["F680"] = _MODELS["F6640"]
+_MODELS["H2640"] = cast(
+    dict[str, Any],
+    {
+        **_MODELS["H288A"],
+        "tag_wan_status_view": "dslWanStatus",
+        "tag_wan_status_data": "dsl_interface_status_lua.lua",
+        "wan_status_root": "OBJ_DSLINTERFACE_ID",
+        "wan_status_kind": "dsl",
+        "reboot_check_encrypted": False,
+    },
+)
+_MODELS["F8748"] = cast(
+    dict[str, Any],
+    {
+        **_MODELS["F6640"],
+        "parse_wan_traffic": True,
+    },
+)
+_MODELS["F6600P"] = cast(
+    dict[str, Any],
+    {
+        **_MODELS["F6640"],
+        "tag_pon_optical_view": "ponopticalinfo&Menu3Location=0",
+        "tag_pon_optical_data": "optical_info_lua.lua",
+    },
+)
+_MODELS["F6745Q"] = _MODELS["F6600P"]
+_MODELS["F670L"] = cast(
+    dict[str, Any],
+    {
+        **_MODELS["F6600P"],
         "expose_internet_connected": False,
         "reboot_public_key_id": "zte_v9_4096",
         "reboot_request_style": "browser_xhr",
@@ -81,10 +165,8 @@ _MODELS = {
         "reboot_disconnect_timeout": 30,
         "reboot_recovery_timeout": 300,
         "reboot_recovery_poll_interval": 5,
-        "tag_pon_optical_view": "ponopticalinfo&Menu3Location=0",
-        "tag_pon_optical_data": "optical_info_lua.lua",
-    }
-}
+    },
+)
 
 
 class zteClient:
