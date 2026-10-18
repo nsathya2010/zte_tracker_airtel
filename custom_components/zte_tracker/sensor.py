@@ -33,13 +33,13 @@ OPTICAL_SENSORS: tuple[ZteOpticalSensorDescription, ...] = (
     ZteOpticalSensorDescription(
         key="PON_onu_state",
         name="ONU State",
-        unique_id_suffix="pon_onu_state",
+        unique_id_suffix="optical_onu_state",
         icon="mdi:fiber-optic",
     ),
     ZteOpticalSensorDescription(
         key="PON_rx_power_dbm",
         name="Optical Module Input Power",
-        unique_id_suffix="pon_rx_power",
+        unique_id_suffix="optical_module_input_power",
         icon="mdi:download-network-outline",
         native_unit_of_measurement="dBm",
         state_class=SensorStateClass.MEASUREMENT,
@@ -47,7 +47,7 @@ OPTICAL_SENSORS: tuple[ZteOpticalSensorDescription, ...] = (
     ZteOpticalSensorDescription(
         key="PON_tx_power_dbm",
         name="Optical Module Output Power",
-        unique_id_suffix="pon_tx_power",
+        unique_id_suffix="optical_module_output_power",
         icon="mdi:upload-network-outline",
         native_unit_of_measurement="dBm",
         state_class=SensorStateClass.MEASUREMENT,
@@ -55,7 +55,7 @@ OPTICAL_SENSORS: tuple[ZteOpticalSensorDescription, ...] = (
     ZteOpticalSensorDescription(
         key="PON_supply_voltage_mv",
         name="Optical Module Supply Voltage",
-        unique_id_suffix="pon_supply_voltage",
+        unique_id_suffix="optical_module_supply_voltage",
         icon="mdi:sine-wave",
         native_unit_of_measurement=UnitOfElectricPotential.MILLIVOLT,
         device_class=SensorDeviceClass.VOLTAGE,
@@ -64,7 +64,7 @@ OPTICAL_SENSORS: tuple[ZteOpticalSensorDescription, ...] = (
     ZteOpticalSensorDescription(
         key="PON_bias_current_ma",
         name="Optical Transmitter Bias Current",
-        unique_id_suffix="pon_bias_current",
+        unique_id_suffix="optical_transmitter_bias_current",
         icon="mdi:current-dc",
         native_unit_of_measurement=UnitOfElectricCurrent.MILLIAMPERE,
         device_class=SensorDeviceClass.CURRENT,
@@ -73,7 +73,7 @@ OPTICAL_SENSORS: tuple[ZteOpticalSensorDescription, ...] = (
     ZteOpticalSensorDescription(
         key="PON_temperature_c",
         name="Operating Temperature of the Optical Module",
-        unique_id_suffix="pon_temperature",
+        unique_id_suffix="optical_module_temperature",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -105,7 +105,6 @@ async def async_setup_entry(
             *[
                 ZteOpticalMetricSensor(coordinator, entry, description)
                 for description in OPTICAL_SENSORS
-                if coordinator.client.paths.get("tag_pon_optical_data")
             ],
         ]
     )
@@ -205,7 +204,7 @@ class ZteDeviceCountSensor(ZteBaseSensor):
 
 
 class ZteOpticalMetricSensor(ZteBaseSensor):
-    """Diagnostic sensor backed by router optical data."""
+    """Sensor backed by router optical data."""
 
     def __init__(
         self,
@@ -223,11 +222,6 @@ class ZteOpticalMetricSensor(ZteBaseSensor):
         self._attr_native_unit_of_measurement = description.native_unit_of_measurement
         self._attr_device_class = description.device_class
         self._attr_state_class = description.state_class
-
-    @property
-    def available(self) -> bool:
-        """Return whether the entity has a current value to expose."""
-        return super().available and self.native_value is not None
 
     @property
     def native_value(self) -> Any:
