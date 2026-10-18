@@ -215,10 +215,10 @@ async def test_gpon_optical_entities_expose_router_metrics(mock_hass) -> None:
         if isinstance(entity, sensor.ZteOpticalMetricSensor)
     }
     assert len(optical) == 6
-    assert optical["entry-1_pon_onu_state"].native_value == "O5"
-    assert optical["entry-1_pon_rx_power"].native_value == -25.5284
-    assert optical["entry-1_pon_supply_voltage"].native_value == 3237.0
-    assert optical["entry-1_pon_temperature"].native_value == 49.714
+    assert optical["entry-1_optical_onu_state"].native_value == "O5"
+    assert optical["entry-1_optical_module_input_power_dbm"].native_value == -25.5284
+    assert optical["entry-1_optical_module_supply_voltage_mv"].native_value == 3237.0
+    assert optical["entry-1_optical_module_temperature_c"].native_value == 49.714
 
     added_binary: list = []
     await binary_sensor.async_setup_entry(mock_hass, entry, added_binary.extend)
