@@ -20,6 +20,8 @@ from custom_components.zte_tracker.const import (
     CONF_SCAN_INTERVAL,
     CONF_SESSION_REUSE,
     DOMAIN,
+    EVENT_LOS_DROPPED,
+    EVENT_LOS_RECOVERED,
     EVENT_LOS_STATE_CHANGED,
 )
 from custom_components.zte_tracker.coordinator import (
@@ -540,12 +542,17 @@ async def test_async_update_data_tracks_los_events_and_durations(mock_hass) -> N
     assert third["router_info"]["PON_last_recovery_at"] == "2026-01-01T10:00:45"
 
     fired = mock_hass.bus.async_fire.call_args_list
-    assert len(fired) == 2
+    assert len(fired) == 4
     assert fired[0].args[0] == EVENT_LOS_STATE_CHANGED
     assert fired[0].args[1]["los"] is True
-    assert fired[1].args[0] == EVENT_LOS_STATE_CHANGED
-    assert fired[1].args[1]["los"] is False
-    assert fired[1].args[1]["outage_duration_seconds"] == 25
+    assert fired[1].args[0] == EVENT_LOS_DROPPED
+    assert fired[1].args[1]["los"] is True
+    assert fired[2].args[0] == EVENT_LOS_STATE_CHANGED
+    assert fired[2].args[1]["los"] is False
+    assert fired[2].args[1]["outage_duration_seconds"] == 25
+    assert fired[3].args[0] == EVENT_LOS_RECOVERED
+    assert fired[3].args[1]["los"] is False
+    assert fired[3].args[1]["outage_duration_seconds"] == 25
 
 
 def test_legacy_get_scanner_and_control_helpers(mock_hass) -> None:

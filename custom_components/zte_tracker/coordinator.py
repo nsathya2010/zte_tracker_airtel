@@ -38,6 +38,8 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SESSION_REUSE,
     DOMAIN,
+    EVENT_LOS_DROPPED,
+    EVENT_LOS_RECOVERED,
     EVENT_LOS_STATE_CHANGED,
 )
 from .zteclient.zte_client import zteClient
@@ -402,6 +404,7 @@ class ZteDataCoordinator(DataUpdateCoordinator):
             if self._los_last_state is False:
                 event_data["outage_duration_seconds"] = 0
                 self.hass.bus.async_fire(EVENT_LOS_STATE_CHANGED, event_data)
+                self.hass.bus.async_fire(EVENT_LOS_DROPPED, dict(event_data))
         else:
             if self._los_active_since is not None:
                 outage_seconds = int((now - self._los_active_since).total_seconds())
@@ -410,6 +413,7 @@ class ZteDataCoordinator(DataUpdateCoordinator):
                 if self._los_last_state is True:
                     event_data["outage_duration_seconds"] = outage_seconds
                     self.hass.bus.async_fire(EVENT_LOS_STATE_CHANGED, event_data)
+                    self.hass.bus.async_fire(EVENT_LOS_RECOVERED, dict(event_data))
                 self._los_active_since = None
 
             if self._los_last_outage_seconds is not None:

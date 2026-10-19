@@ -5,6 +5,8 @@ from homeassistant.const import Platform
 
 DOMAIN = "zte_tracker"
 DOMAIN_DATA = f"{DOMAIN}_data"
+EVENT_LOS_DROPPED = f"{DOMAIN}_los_dropped"
+EVENT_LOS_RECOVERED = f"{DOMAIN}_los_recovered"
 EVENT_LOS_STATE_CHANGED = f"{DOMAIN}_los_state_changed"
 PLATFORMS = [
     Platform.SENSOR,
