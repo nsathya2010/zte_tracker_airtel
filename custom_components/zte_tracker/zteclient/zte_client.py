@@ -157,6 +157,7 @@ _MODELS["F670L"] = cast(
     dict[str, Any],
     {
         **_MODELS["F6600P"],
+        "default_scheme": "http",
         "expose_internet_connected": False,
         "reboot_public_key_id": "zte_v9_4096",
         "reboot_request_style": "browser_xhr",
@@ -483,7 +484,7 @@ class zteClient:
 
     def get_lan_devices(self) -> list[dict[str, Any]] | None:
         """Get the list of devices connected to the LAN ports."""
-        try:
+        def _fetch() -> list[dict[str, Any]]:
             if not self.session:
                 raise RuntimeError("Session not initialized")
 
@@ -501,8 +502,18 @@ class zteClient:
             r = self.session.get(lan_request, verify=self.verify_ssl, timeout=10)
             self.log_request(r)
             r.raise_for_status()
+            return self.parse_devices(r.text, self.paths["lan_id_element"], "LAN")
 
-            devices = self.parse_devices(r.text, self.paths["lan_id_element"], "LAN")
+        try:
+            try:
+                devices = _fetch()
+            except Exception as e:
+                if "SessionTimeout" not in str(e):
+                    raise
+                self.logout()
+                if not self.login():
+                    raise
+                devices = _fetch()
             self.statusmsg = "OK"
             return devices
 
@@ -513,7 +524,7 @@ class zteClient:
 
     def get_wifi_devices(self) -> list[dict[str, Any]] | None:
         """Get the list of devices connected to the wifi."""
-        try:
+        def _fetch() -> list[dict[str, Any]]:
             if not self.session:
                 raise RuntimeError("Session not initialized")
 
@@ -538,7 +549,18 @@ class zteClient:
                 r.raise_for_status()
 
             self.log_request(r)
-            devices = self.parse_devices(r.text, self.paths["wlan_id_element"], "WLAN")
+            return self.parse_devices(r.text, self.paths["wlan_id_element"], "WLAN")
+
+        try:
+            try:
+                devices = _fetch()
+            except Exception as e:
+                if "SessionTimeout" not in str(e):
+                    raise
+                self.logout()
+                if not self.login():
+                    raise
+                devices = _fetch()
             self.statusmsg = "OK"
             return devices
 

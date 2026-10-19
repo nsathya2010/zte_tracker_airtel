@@ -53,11 +53,13 @@ def test_init_resolves_scheme_models_and_profiles() -> None:
     """Model aliases and scheme defaults should stay stable."""
     https_client = _make_client("F6640")
     http_client = _make_client("F6640", scheme="http", verify_ssl=True)
+    f670l_client = _make_client("F670L")
 
     assert "F6640" in zteClient.get_models()
     assert "F670L" in zteClient.get_models()
     assert https_client.base_url == "https://192.168.1.1"
     assert http_client.base_url == "http://192.168.1.1"
+    assert f670l_client.base_url == "http://192.168.1.1"
     assert http_client.verify_ssl is False
     profiles = zteClient.get_profiles()
     assert "F6640" in profiles
@@ -287,6 +289,30 @@ def test_get_lan_devices_uses_menu_view_and_reports_failures() -> None:
     assert "Failed to get LAN devices" in client.statusmsg
 
 
+def test_get_lan_devices_reauthenticates_after_session_timeout() -> None:
+    """LAN fetches should retry once after a SessionTimeout router response."""
+    client = _make_client()
+    client.session = MagicMock()
+    client.parse_devices = Mock(
+        side_effect=[
+            Exception("Router error: SessionTimeout"),
+            [{"MACAddress": "AA"}],
+        ]
+    )
+    client.login = Mock(return_value=True)
+    client.logout = Mock()
+    client.session.get.side_effect = [
+        _response(),
+        _response(text="<timeout/>"),
+        _response(),
+        _response(text="<xml/>"),
+    ]
+
+    assert client.get_lan_devices() == [{"MACAddress": "AA"}]
+    client.logout.assert_called_once()
+    client.login.assert_called_once()
+
+
 def test_get_wifi_devices_tries_direct_then_falls_back() -> None:
     """WiFi fetches should retry with the setup request when needed."""
     client = _make_client()
@@ -304,6 +330,28 @@ def test_get_wifi_devices_tries_direct_then_falls_back() -> None:
     client.session = None
     assert client.get_wifi_devices() is None
     assert "Failed to get WiFi devices" in client.statusmsg
+
+
+def test_get_wifi_devices_reauthenticates_after_session_timeout() -> None:
+    """WiFi fetches should retry once after a SessionTimeout router response."""
+    client = _make_client()
+    client.session = MagicMock()
+    client.parse_devices = Mock(
+        side_effect=[
+            Exception("Router error: SessionTimeout"),
+            [{"MACAddress": "AA"}],
+        ]
+    )
+    client.login = Mock(return_value=True)
+    client.logout = Mock()
+    client.session.get.side_effect = [
+        _response(text="<timeout/>"),
+        _response(text="<xml/>"),
+    ]
+
+    assert client.get_wifi_devices() == [{"MACAddress": "AA"}]
+    client.logout.assert_called_once()
+    client.login.assert_called_once()
 
 
 def test_fetch_topology_inline_tracks_failures_and_success() -> None:
