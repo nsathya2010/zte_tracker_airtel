@@ -343,7 +343,7 @@ async def test_async_update_data_fetches_optics_even_when_wan_query_is_empty(
 async def test_async_update_data_marks_fiber_connected_from_o5_when_los_missing(
     mock_hass,
 ) -> None:
-    """F670L-style PON data should still show fiber up without a LOS node."""
+    """GPON-style PON data should still show fiber up without a LOS node."""
     client = _client(
         get_devices_response=Mock(return_value=[]),
         get_wan_status=Mock(return_value={"PON_onu_state": "O5"}),
@@ -360,7 +360,7 @@ async def test_async_update_data_marks_fiber_connected_from_o5_when_los_missing(
 async def test_async_update_data_exposes_f670l_internet_state_from_wan_status(
     mock_hass,
 ) -> None:
-    """F670L should expose Internet when WAN status reports a boolean state."""
+    """F670L should suppress Internet even if WAN status reports a boolean."""
     client = _client(
         model="F670L",
         get_devices_response=Mock(return_value=[]),
@@ -371,7 +371,7 @@ async def test_async_update_data_exposes_f670l_internet_state_from_wan_status(
 
     result = await coordinator._async_update_data()
 
-    assert result["router_info"]["internet_connected"] is True
+    assert result["router_info"]["internet_connected"] is None
 
 
 @pytest.mark.asyncio

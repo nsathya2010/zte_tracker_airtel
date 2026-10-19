@@ -102,17 +102,19 @@ async def async_setup_entry(
 ) -> None:
     """Set up ZTE sensor from config entry."""
     coordinator: ZteDataCoordinator = hass.data[DOMAIN][entry.entry_id]
-
-    async_add_entities(
-        [
-            ZteRouterSensor(coordinator, entry),
-            ZteDeviceCountSensor(coordinator, entry),
-            *[
+    entities: list[SensorEntity] = [
+        ZteRouterSensor(coordinator, entry),
+        ZteDeviceCountSensor(coordinator, entry),
+    ]
+    if coordinator.client.paths.get("tag_pon_optical_data"):
+        entities.extend(
+            [
                 ZteOpticalMetricSensor(coordinator, entry, description)
                 for description in OPTICAL_SENSORS
-            ],
-        ]
-    )
+            ]
+        )
+
+    async_add_entities(entities)
 
 
 class ZteBaseSensor(CoordinatorEntity, SensorEntity):

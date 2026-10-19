@@ -21,10 +21,9 @@ async def async_setup_entry(
 ) -> None:
     """Set up ZTE binary sensors from a config entry."""
     coordinator: ZteDataCoordinator = hass.data[DOMAIN][entry.entry_id]
-    entities: list[CoordinatorEntity] = [
-        ZteRouterConnectedBinarySensor(coordinator, entry),
-        ZteInternetConnectedBinarySensor(coordinator, entry),
-    ]
+    entities: list[CoordinatorEntity] = [ZteRouterConnectedBinarySensor(coordinator, entry)]
+    if coordinator.client.paths.get("expose_internet_connected") is not False:
+        entities.append(ZteInternetConnectedBinarySensor(coordinator, entry))
     if coordinator.client.paths.get("tag_pon_optical_data"):
         entities.extend(
             [

@@ -218,7 +218,7 @@ async def test_gpon_optical_entities_expose_router_metrics(mock_hass) -> None:
             "PON_loss_of_signal": False,
         }
     )
-    coordinator.client.model = "F670L"
+    coordinator.client.model = "F6600P"
     coordinator.client.paths = {"tag_pon_optical_data": "optical_info_lua.lua"}
     mock_hass.data = {DOMAIN: {entry.entry_id: coordinator}}
 
@@ -251,6 +251,28 @@ async def test_gpon_optical_entities_expose_router_metrics(mock_hass) -> None:
     assert los_entity.is_on is False
     assert los_entity.available is True
     assert los_entity.icon == "mdi:check-circle-outline"
+
+
+@pytest.mark.asyncio
+async def test_f670l_skips_internet_and_optical_entities(mock_hass) -> None:
+    """F670L Airtel profile should not create unsupported WAN/optical entities."""
+    entry = _entry()
+    coordinator = _coordinator()
+    coordinator.client.model = "F670L"
+    coordinator.client.paths = {"expose_internet_connected": False}
+    mock_hass.data = {DOMAIN: {entry.entry_id: coordinator}}
+
+    added_sensors: list = []
+    await sensor.async_setup_entry(mock_hass, entry, added_sensors.extend)
+    assert len(added_sensors) == 2
+    assert not any(
+        isinstance(entity, sensor.ZteOpticalMetricSensor) for entity in added_sensors
+    )
+
+    added_binary: list = []
+    await binary_sensor.async_setup_entry(mock_hass, entry, added_binary.extend)
+    assert len(added_binary) == 1
+    assert isinstance(added_binary[0], binary_sensor.ZteRouterConnectedBinarySensor)
 
 
 def test_los_sensor_distinguishes_unknown_from_confirmed_loss() -> None:

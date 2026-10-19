@@ -157,6 +157,9 @@ _MODELS["F670L"] = cast(
     dict[str, Any],
     {
         **_MODELS["F6600P"],
+        "tag_pon_optical_view": None,
+        "tag_pon_optical_data": None,
+        "expose_internet_connected": False,
         "reboot_public_key_id": "zte_v9_4096",
         "reboot_request_style": "browser_xhr",
         "reboot_session_token_source": "tmp",
