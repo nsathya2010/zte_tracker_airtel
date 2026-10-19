@@ -157,8 +157,10 @@ _MODELS["F670L"] = cast(
     dict[str, Any],
     {
         **_MODELS["F6600P"],
+        "browser_session": True,
         "default_scheme": "http",
         "expose_internet_connected": False,
+        "pon_optical_accept_error_with_data": True,
         "reboot_public_key_id": "zte_v9_4096",
         "reboot_request_style": "browser_xhr",
         "reboot_session_token_source": "tmp",
@@ -255,7 +257,7 @@ class zteClient:
             }
         )
 
-        if self.mesh_topology:
+        if self.mesh_topology or self.paths.get("browser_session"):
             # Mesh topology requires browser-like session initialization:
             # 1. Page load to set cookies (_TESTCOOKIESUPPORT / SID)
             # 2. XHR headers for subsequent API calls
@@ -371,7 +373,7 @@ class zteClient:
             # Handle refresh requirement
             if self.login_data.get("login_need_refresh") == 1:
                 _LOGGER.debug("Login refresh required")
-                if self.mesh_topology:
+                if self.mesh_topology or self.paths.get("browser_session"):
                     try:
                         self.session.get(
                             f"{self.base_url}/",
@@ -380,6 +382,15 @@ class zteClient:
                         )
                     except Exception:
                         pass  # Best-effort reload
+            elif self.paths.get("browser_session"):
+                try:
+                    self.session.get(
+                        f"{self.base_url}/",
+                        verify=self.verify_ssl,
+                        timeout=10,
+                    )
+                except Exception:
+                    pass  # Best-effort warm-up for browser-style firmware
             # Check for error messaging.
             if self.login_data.get("lockingTime", 0) == -1:
                 self.statusmsg = f"Router is locked: {self.login_data.get('loginErrMsg', 'Unknown error')}"
@@ -1059,7 +1070,23 @@ class zteClient:
 
             error_str = xml.findtext("IF_ERRORSTR")
             if error_str and error_str not in ("SUCC", "SUCCESS", "OK"):
-                raise Exception(f"Router error: {error_str}")
+                has_optical_payload = any(
+                    xml.find(f"{node}/Instance") is not None
+                    for node in (
+                        "OBJ_PON_OPTICALPARA_ID",
+                        "OBJ_GPONREGSTATUS_ID",
+                        "OBJ_LOS_INFO_ID",
+                    )
+                )
+                if not (
+                    self.paths.get("pon_optical_accept_error_with_data")
+                    and has_optical_payload
+                ):
+                    raise Exception(f"Router error: {error_str}")
+                _LOGGER.debug(
+                    "PON optical payload returned router error %s but included usable data; parsing anyway.",
+                    error_str,
+                )
 
             def _fields(node_name: str) -> dict[str, str]:
                 inst = xml.find(f"{node_name}/Instance")

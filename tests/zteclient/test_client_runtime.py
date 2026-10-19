@@ -86,6 +86,24 @@ def test_setup_session_sets_headers_and_mesh_preflight() -> None:
     )
 
 
+def test_setup_session_primes_browser_style_profiles() -> None:
+    """F670L should get browser-like session headers even without mesh mode."""
+    fake_session = MagicMock()
+    fake_session.headers = {}
+    fake_session.get = Mock()
+    client = _make_client("F670L")
+
+    with patch.object(zte_client_module, "Session", return_value=fake_session):
+        client._setup_session()
+
+    assert client.session is fake_session
+    assert fake_session.headers["X-Requested-With"] == "XMLHttpRequest"
+    assert fake_session.headers["Referer"] == "http://192.168.1.1/"
+    fake_session.get.assert_called_once_with(
+        "http://192.168.1.1/", verify=False, timeout=10
+    )
+
+
 def test_login_short_circuits_when_session_is_fresh() -> None:
     """A fresh login_data cache should avoid new HTTP work."""
     client = _make_client()
@@ -111,6 +129,24 @@ def test_login_success_populates_state() -> None:
     assert client.login() is True
     assert client.statusmsg == "Login successful."
     assert client.login_data == {"login_need_refresh": 0, "lockingTime": 0}
+
+
+def test_login_warms_browser_style_profiles_after_success() -> None:
+    """F670L should warm the landing page after login like the browser does."""
+    client = _make_client("F670L")
+    client._setup_session = Mock()
+    client.session = MagicMock()
+    client.get_session_token = Mock(return_value="session-token")
+    client.session.get.side_effect = [
+        _response(content=b"<ajax_response_xml_root>abc123</ajax_response_xml_root>"),
+        _response(),
+    ]
+    client.session.post.return_value = _response(
+        json_data={"login_need_refresh": 0, "lockingTime": 0}
+    )
+
+    assert client.login() is True
+    assert client.session.get.call_args_list[-1].args[0] == "http://192.168.1.1/"
 
 
 @pytest.mark.parametrize(

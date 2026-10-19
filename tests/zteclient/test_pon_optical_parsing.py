@@ -73,6 +73,27 @@ class TestPonOpticalParsing(TestCase):
         attrs = client.get_pon_optical_info()
         self.assertEqual(attrs, {})
 
+    def test_f670l_accepts_fail_response_when_optical_data_is_present(self):
+        sample = (
+            "<ajax_response_xml_root><IF_ERRORSTR>FAIL</IF_ERRORSTR>"
+            "<OBJ_LOS_INFO_ID><Instance><ParaName>LosInfo</ParaName><ParaValue>0</ParaValue></Instance></OBJ_LOS_INFO_ID>"
+            "<OBJ_GPONREGSTATUS_ID><Instance><ParaName>RegStatus</ParaName><ParaValue>5</ParaValue></Instance></OBJ_GPONREGSTATUS_ID>"
+            "<OBJ_PON_OPTICALPARA_ID><Instance>"
+            "<ParaName>Current</ParaName><ParaValue>13.8</ParaValue>"
+            "<ParaName>Volt</ParaName><ParaValue>3237</ParaValue>"
+            "<ParaName>Temp</ParaName><ParaValue>49.367</ParaValue>"
+            "<ParaName>RxPower</ParaName><ParaValue>-25.8502</ParaValue>"
+            "<ParaName>TxPower</ParaName><ParaValue>2.6202</ParaValue>"
+            "</Instance></OBJ_PON_OPTICALPARA_ID></ajax_response_xml_root>"
+        )
+        client = _make_client(sample)
+        client.paths["pon_optical_accept_error_with_data"] = True
+        attrs = client.get_pon_optical_info()
+        self.assertEqual(attrs["PON_onu_state"], "O5")
+        self.assertAlmostEqual(attrs["PON_rx_power_dbm"], -25.8502)
+        self.assertAlmostEqual(attrs["PON_tx_power_dbm"], 2.6202)
+        self.assertFalse(attrs["PON_loss_of_signal"])
+
     def test_view_request_is_made_before_data_request(self):
         client = _make_client(SAMPLE)
         client.get_pon_optical_info()
