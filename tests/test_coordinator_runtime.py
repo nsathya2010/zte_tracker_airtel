@@ -375,6 +375,23 @@ async def test_async_update_data_exposes_f670l_internet_state_from_wan_status(
 
 
 @pytest.mark.asyncio
+async def test_async_update_data_keeps_f670l_optical_state(mock_hass) -> None:
+    """F670L should still expose PON-derived fiber state while hiding Internet."""
+    client = _client(
+        model="F670L",
+        get_devices_response=Mock(return_value=[]),
+        get_wan_status=Mock(return_value={"PON_onu_state": "O5"}),
+        get_router_details=Mock(return_value={}),
+    )
+    coordinator = _make_coordinator(mock_hass, _entry(), client)
+
+    result = await coordinator._async_update_data()
+
+    assert result["router_info"]["fiber_connected"] is True
+    assert result["router_info"]["internet_connected"] is None
+
+
+@pytest.mark.asyncio
 async def test_async_update_data_reuse_path_reauthenticates_stale_session(
     mock_hass,
 ) -> None:

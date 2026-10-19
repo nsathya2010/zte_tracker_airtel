@@ -157,8 +157,6 @@ _MODELS["F670L"] = cast(
     dict[str, Any],
     {
         **_MODELS["F6600P"],
-        "tag_pon_optical_view": None,
-        "tag_pon_optical_data": None,
         "expose_internet_connected": False,
         "reboot_public_key_id": "zte_v9_4096",
         "reboot_request_style": "browser_xhr",
@@ -1017,6 +1015,14 @@ class zteClient:
         if not view_tag or not data_tag:
             return {}
 
+        failures = getattr(self, "_pon_optical_failures", 0)
+        if failures >= 3:
+            last_fail = getattr(self, "_pon_optical_last_fail", 0)
+            if time.time() - last_fail < 300:
+                return {}
+            self._pon_optical_failures = 0
+            failures = 0
+
         pon_attrs: dict[str, Any] = {}
         try:
             # view must run before data, same reason as get_wan_status().
@@ -1031,7 +1037,6 @@ class zteClient:
 
             error_str = xml.findtext("IF_ERRORSTR")
             if error_str and error_str not in ("SUCC", "SUCCESS", "OK"):
-                _LOGGER.error("Router error: %s", error_str)
                 raise Exception(f"Router error: {error_str}")
 
             def _fields(node_name: str) -> dict[str, str]:
@@ -1073,8 +1078,20 @@ class zteClient:
             if reg_status is not None:
                 pon_attrs["PON_registration_status"] = reg_status
                 pon_attrs["PON_onu_state"] = f"O{reg_status}"
+            self._pon_optical_failures = 0
         except Exception as ex:
-            _LOGGER.warning(f"Failed to fetch PON optical info: {ex}")
+            self._pon_optical_failures = failures + 1
+            self._pon_optical_last_fail = time.time()
+            if "Router error: FAIL" in str(ex):
+                if failures == 0:
+                    _LOGGER.warning(
+                        "PON optical endpoint rejected the request; suppressing repeated retries for 5 minutes: %s",
+                        ex,
+                    )
+                else:
+                    _LOGGER.debug("PON optical endpoint still rejecting the request: %s", ex)
+            else:
+                _LOGGER.warning(f"Failed to fetch PON optical info: {ex}")
         return pon_attrs
 
     @staticmethod
